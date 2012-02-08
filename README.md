@@ -22,4 +22,4 @@ Intention is to make it available through Maven Central once it is stable enough
 That will output a JAR inside the ```target/``` folder.
 
 ## What's missing?
-Currently, not all tests provided by the SockJS protocol. As mentioned, it is still work in progress and the goal is naturally to be 100% compatible with the protocol.
+Currently, not all tests provided by the SockJS protocol pass. As mentioned, it is still work in progress and the goal is naturally to be 100% compatible with the protocol.
