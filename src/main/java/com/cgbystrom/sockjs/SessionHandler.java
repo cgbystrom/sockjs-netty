@@ -55,7 +55,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             flush();
         } else if (state == State.CLOSED) {
             logger.debug("Session " + id + " is closed, go away.");
-            e.getChannel().write(Frame.closeFrame(3000, "Go away!"));
+            e.getChannel().write(Frame.closeFrame(3000, "Go away!")).addListener(ChannelFutureListener.CLOSE);
         }
     }
 

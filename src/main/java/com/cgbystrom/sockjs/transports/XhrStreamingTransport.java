@@ -4,9 +4,11 @@ import com.cgbystrom.sockjs.Frame;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
+import org.jboss.netty.logging.InternalLogger;
+import org.jboss.netty.logging.InternalLoggerFactory;
 
 public class XhrStreamingTransport extends StreamingTransport {
-    //private static final Logger logger = LoggerFactory.getLogger(XhrStreamingTransport.class);
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(XhrStreamingTransport.class);
 
     public XhrStreamingTransport(int maxResponseSize) {
         super(maxResponseSize);
@@ -17,12 +19,12 @@ public class XhrStreamingTransport extends StreamingTransport {
         if (e.getMessage() instanceof Frame) {
             if (headerSent.compareAndSet(false, true)) {
                 HttpResponse response = createResponse(CONTENT_TYPE_JAVASCRIPT);
-                ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), e.getFuture(), response, e.getRemoteAddress()));
+                ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), Channels.future(e.getChannel()), response, e.getRemoteAddress()));
 
                 // IE requires 2KB prefix:
                 // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx
                 DefaultHttpChunk message = new DefaultHttpChunk(Frame.encode(Frame.preludeFrame(), true));
-                ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), e.getFuture(), message, e.getRemoteAddress()));
+                ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), Channels.future(e.getChannel()), message, e.getRemoteAddress()));
             }
             final Frame frame = (Frame) e.getMessage();
             ChannelBuffer content = Frame.encode(frame, true);
