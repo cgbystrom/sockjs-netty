@@ -18,9 +18,9 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.codec.http.websocketx.*;
+import org.jboss.netty.logging.InternalLogger;
+import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,8 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 // FIMXE: Mark as sharable?
 public class WebSocketTransport extends SimpleChannelHandler {
-    //private static final InternalLogger logger = InternalLoggerFactory.getInstance(WebSocketTransport.class);
-    private static final Logger logger = LoggerFactory.getLogger(WebSocketTransport.class);
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(WebSocketTransport.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final CookieDecoder COOKIE_DECODER = new CookieDecoder();
@@ -152,7 +151,7 @@ public class WebSocketTransport extends SimpleChannelHandler {
     public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         if (e.getMessage() instanceof Frame) {
             Frame f = (Frame) e.getMessage();
-            logger.debug("Write requested for {}", f.getClass().getSimpleName());
+            logger.debug("Write requested for " + f.getClass().getSimpleName());
             TextWebSocketFrame message = new TextWebSocketFrame(Frame.encode((Frame) e.getMessage(), false));
             super.writeRequested(ctx, new DownstreamMessageEvent(e.getChannel(), e.getFuture(), message, e.getRemoteAddress()));
         } else {

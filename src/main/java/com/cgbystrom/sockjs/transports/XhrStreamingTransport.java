@@ -4,11 +4,9 @@ import com.cgbystrom.sockjs.Frame;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class XhrStreamingTransport extends StreamingTransport {
-    private static final Logger logger = LoggerFactory.getLogger(XhrStreamingTransport.class);
+    //private static final Logger logger = LoggerFactory.getLogger(XhrStreamingTransport.class);
 
     public XhrStreamingTransport(int maxResponseSize) {
         super(maxResponseSize);

@@ -6,16 +6,16 @@ import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
+import org.jboss.netty.logging.InternalLogger;
+import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.*;
 
 import java.util.List;
 
 public class XhrSendTransport extends SimpleChannelUpstreamHandler {
-    private static final Logger logger = LoggerFactory.getLogger(XhrSendTransport.class);
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(XhrSendTransport.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private boolean isJsonpEnabled = false;
