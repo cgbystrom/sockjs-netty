@@ -68,7 +68,7 @@ public class BaseTransport extends SimpleChannelHandler {
             respond(e.getChannel(), HttpResponseStatus.NOT_FOUND, "Session not found.");
         } else if (e.getCause() instanceof SessionHandler.LockException) {
             if (e.getChannel().isWritable()) {
-                e.getChannel().write(Frame.closeFrame(2010, "Another connection still open"));
+                e.getChannel().write(Frame.closeFrame(2010, "Another connection still open")).addListener(ChannelFutureListener.CLOSE);
             }
         } else {
             super.exceptionCaught(ctx, e);

@@ -50,23 +50,26 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             service.onOpen(this);
             // FIXME: Either start the heartbeat or flush pending messages in queue
             flush();
-        } else if (state == State.OPEN) {
+        } else if (state == State.OPEN && channel == null) {
             logger.debug("Session " + id + " is open, flushing..");
             flush();
         } else if (state == State.CLOSED) {
             logger.debug("Session " + id + " is closed, go away.");
             e.getChannel().write(Frame.closeFrame(3000, "Go away!")).addListener(ChannelFutureListener.CLOSE);
+        } else {
+            throw new Exception("Invalid channel state: " + state);
         }
     }
 
     @Override
-    public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        logger.debug("Session " + id + " underlying channel disconnected");
+    public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+        logger.debug("Session " + id + " underlying channel closed");
 
         // FIXME: Stop any heartbeat
         // FIXME: Timer to expire the connection? Should not close session here.
         // FIXME: Notify the service? Unless timeout etc, disconnect it?
         removeChannel(e.getChannel());
+        super.channelClosed(ctx, e);
     }
 
     @Override
@@ -148,7 +151,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     private synchronized void removeChannel(Channel channel) {
         if (this.channel != channel && this.channel != null) {
-            throw new RuntimeException("Trying to remove wrong channel");
+            return;
         }
         this.channel = null;
         logger.debug("Session " + id + " channel removed");
