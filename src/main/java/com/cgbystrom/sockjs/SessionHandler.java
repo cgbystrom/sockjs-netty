@@ -33,14 +33,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     @Override
     public synchronized void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         if (logger.isDebugEnabled())
-            logger.debug("Session " + id + " connected");
+            logger.debug("Session " + id + " connected " + e.getChannel());
 
         // FIXME: Check if session has expired
         // FIXME: Check if session is locked (another handler already uses it), all but WS can do this
 
-        if (channel != null) {
-            throw new LockException(channel);
-        }
         setChannel(e.getChannel());
 
         if (state == State.CONNECTING) {
@@ -50,7 +47,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             service.onOpen(this);
             // FIXME: Either start the heartbeat or flush pending messages in queue
             flush();
-        } else if (state == State.OPEN && channel == null) {
+        } else if (state == State.OPEN) {
+            if (channel != null) {
+                logger.debug("Session " + id + " already have a channel connected.");
+                throw new LockException(channel);
+            }
             logger.debug("Session " + id + " is open, flushing..");
             flush();
         } else if (state == State.CLOSED) {
@@ -62,9 +63,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     }
 
     @Override
-    public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        logger.debug("Session " + id + " underlying channel closed");
-
+    public synchronized void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+        logger.debug("Session " + id + " underlying channel closed " + e.getChannel());
+        if (state == State.OPEN) {
+            state = State.CONNECTING;
+        }
         // FIXME: Stop any heartbeat
         // FIXME: Timer to expire the connection? Should not close session here.
         // FIXME: Notify the service? Unless timeout etc, disconnect it?
@@ -128,13 +131,13 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     public synchronized void close(int code, String message) {
         if (state != State.CLOSED) {
-            logger.debug("Session " + id + " closing...");
+            logger.debug("Session " + id + " code initiated close, closing...");
             if (channel != null) {
+                setState(State.CLOSED);
                 channel.write(Frame.closeFrame(code, message)).addListener(ChannelFutureListener.CLOSE);
                 // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
                 // FIXME: Save this close code and reason
                 service.onClose(this);
-                setState(State.CLOSED);
             }
         }
     }
