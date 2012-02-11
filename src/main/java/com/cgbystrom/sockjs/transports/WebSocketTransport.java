@@ -205,7 +205,6 @@ public class WebSocketTransport extends SimpleChannelHandler {
 
         // Handshake
         WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(getWebSocketLocation(req), "chat, superchat", false);
-        if (ctx.getPipeline().get(HttpChunkAggregator.class) != null)
 
         handshaker = wsFactory.newHandshaker(req);
         if (handshaker == null) {

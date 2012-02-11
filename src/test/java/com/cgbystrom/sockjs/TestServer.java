@@ -9,6 +9,7 @@ import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
@@ -37,12 +38,7 @@ public class TestServer {
         appender.start();
 
         rootLogger.addAppender(appender);
-
-        //rootLogger.debug("Message 1");
-        //rootLogger.warn("Message 2");
-
         InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
-
 
         ServerBootstrap bootstrap = new ServerBootstrap(
                 new NioServerSocketChannelFactory(
@@ -50,8 +46,6 @@ public class TestServer {
                         Executors.newCachedThreadPool()));
 
         final ServiceRouter router = new ServiceRouter();
-        //new EchoService("/echo", CLIENT_URL, true)
-        //EchoService echoService = ;
         router.registerService("/echo", new EchoService());
         router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoService());
         router.registerService("/close", new CloseService());
@@ -61,20 +55,10 @@ public class TestServer {
             public ChannelPipeline getPipeline() throws Exception {
                 ChannelPipeline pipeline = pipeline();
                 pipeline.addLast("decoder", new HttpRequestDecoder());
-                //pipeline.addLast("chunkAggregator", new HttpChunkAggregator(130 * 1024)); // Required for WS handshaker or else NPE.
+                pipeline.addLast("chunkAggregator", new HttpChunkAggregator(130 * 1024)); // Required for WS handshaker or else NPE.
                 pipeline.addLast("encoder", new HttpResponseEncoder());
                 pipeline.addLast("preflight", new PreflightHandler());
-                //pipeline.addLast("handler", new RouterHandler(new IframeHandler()));
-                //pipeline.addLast("iframe", new IframeHandler(CLIENT_URL));
-                //pipeline.addLast("xhr-send", new XhrSendTransport());
-
-
                 pipeline.addLast("router", router);
-                //pipeline.addLast("sockjs-echo", new ServiceRouter("/echo", CLIENT_URL, true));
-                //pipeline.addLast("sockjs-echo-disabled-ws", new ServiceRouter("/disabled_websocket_echo", CLIENT_URL, false));
-
-
-
                 return pipeline;
             }
         });
