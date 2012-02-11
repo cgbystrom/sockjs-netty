@@ -83,8 +83,11 @@ public abstract class Frame {
                 default:
                     // Reference: http://www.unicode.org/versions/Unicode5.1.0/
                     if ((ch >= '\u0000' && ch <= '\u001F') ||
-                            (ch >= '\u007F' && ch <= '\u009F') ||
-                            (ch >= '\u2000' && ch <= '\u20FF')) {
+                            (ch >= '\uD800' && ch <= '\uDFFF') ||
+                            (ch >= '\u200C' && ch <= '\u200F') ||
+                            (ch >= '\u2028' && ch <= '\u202F') ||
+                            (ch >= '\u2060' && ch <= '\u206F') ||
+                            (ch >= '\uFFF0' && ch <= '\uFFFF')) {
                         String ss = Integer.toHexString(ch);
                         buffer.writeByte('\\');
                         buffer.writeByte('u');
@@ -115,8 +118,11 @@ public abstract class Frame {
                 default:
                     // Reference: http://www.unicode.org/versions/Unicode5.1.0/
                     if ((ch >= '\u0000' && ch <= '\u001F') ||
-                            (ch >= '\u007F' && ch <= '\u009F') ||
-                            (ch >= '\u2000' && ch <= '\u20FF')) {
+                            (ch >= '\uD800' && ch <= '\uDFFF') ||
+                            (ch >= '\u200C' && ch <= '\u200F') ||
+                            (ch >= '\u2028' && ch <= '\u202F') ||
+                            (ch >= '\u2060' && ch <= '\u206F') ||
+                            (ch >= '\uFFF0' && ch <= '\uFFFF')) {
                         String ss = Integer.toHexString(ch);
                         buffer.writeByte('\\');
                         buffer.writeByte('u');
