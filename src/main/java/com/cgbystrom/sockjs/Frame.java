@@ -1,5 +1,6 @@
 package com.cgbystrom.sockjs;
 
+import org.codehaus.jackson.io.JsonStringEncoder;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.util.CharsetUtil;
@@ -67,40 +68,30 @@ public abstract class Frame {
         return cb;
     }
 
-    public static void escapeJson(String value, ChannelBuffer buffer) {
-        for (int i = 0; i < value.length(); i++) {
-            char ch = value.charAt(i);
-            switch(ch) {
-                case '"': buffer.writeByte('\\'); buffer.writeByte('\"'); break;
-                case '/': buffer.writeByte('\\'); buffer.writeByte('/'); break;
-                case '\\': buffer.writeByte('\\'); buffer.writeByte('\\'); break;
-                case '\b': buffer.writeByte('\\'); buffer.writeByte('b'); break;
-                case '\f': buffer.writeByte('\\'); buffer.writeByte('f'); break;
-                case '\n': buffer.writeByte('\\'); buffer.writeByte('n'); break;
-                case '\r': buffer.writeByte('\\'); buffer.writeByte('r'); break;
-                case '\t': buffer.writeByte('\\'); buffer.writeByte('t'); break;
-
-                default:
-                    // Reference: http://www.unicode.org/versions/Unicode5.1.0/
-                    if ((ch >= '\u0000' && ch <= '\u001F') ||
-                            (ch >= '\uD800' && ch <= '\uDFFF') ||
-                            (ch >= '\u200C' && ch <= '\u200F') ||
-                            (ch >= '\u2028' && ch <= '\u202F') ||
-                            (ch >= '\u2060' && ch <= '\u206F') ||
-                            (ch >= '\uFFF0' && ch <= '\uFFFF')) {
-                        String ss = Integer.toHexString(ch);
-                        buffer.writeByte('\\');
-                        buffer.writeByte('u');
-                        for (int k = 0; k < 4 - ss.length(); k++) {
-                            buffer.writeByte('0');
-                        }
-                        buffer.writeBytes(ss.toLowerCase().getBytes());
-                    } else {
-                        buffer.writeByte(ch);
-                    }
+    public static String escapeCharacters(char[] value) {
+        StringBuilder buffer = new StringBuilder();
+        for (int i = 0; i < value.length; i++) {
+            char ch = value[i];
+            if ((ch >= '\u0000' && ch <= '\u001F') ||
+                    (ch >= '\uD800' && ch <= '\uDFFF') ||
+                    (ch >= '\u200C' && ch <= '\u200F') ||
+                    (ch >= '\u2028' && ch <= '\u202F') ||
+                    (ch >= '\u2060' && ch <= '\u206F') ||
+                    (ch >= '\uFFF0' && ch <= '\uFFFF')) {
+                String ss = Integer.toHexString(ch);
+                buffer.append('\\');
+                buffer.append('u');
+                for (int k = 0; k < 4 - ss.length(); k++) {
+                    buffer.append('0');
+                }
+                buffer.append(ss.toLowerCase());
+            } else {
+                buffer.append(ch);
             }
         }
+        return buffer.toString();
     }
+    
 
     public static void escapeJson(ChannelBuffer input, ChannelBuffer buffer) {
         for (int i = 0; i < input.readableBytes(); i++) {
@@ -133,22 +124,6 @@ public abstract class Frame {
                     } else {
                         buffer.writeByte(ch);
                     }
-            }
-        }
-    }
-
-    private static void escapeEventSource(ChannelBuffer input, ChannelBuffer output) {
-        for (int i = 0; i < input.readableBytes(); i++) {
-            byte b = input.getByte(i);
-            String e = Integer.toHexString(b).toUpperCase();
-            if (e.length() == 1) e = "0" + e;
-            switch (b) {
-                case '%': output.writeByte('%'); output.writeByte(e.charAt(0)); output.writeByte(e.charAt(1)); break;
-                case '\r': output.writeByte('%'); output.writeByte(e.charAt(0)); output.writeByte(e.charAt(1)); break;
-                case '\n': output.writeByte('%'); output.writeByte(e.charAt(0)); output.writeByte(e.charAt(1)); break;
-                case '\0': output.writeByte('%'); output.writeByte(e.charAt(0)); output.writeByte(e.charAt(1)); break;
-                default:
-                    output.writeByte(b);
             }
         }
     }
@@ -188,8 +163,8 @@ public abstract class Frame {
             for (int i = 0; i < messages.length; i++) {
                 SockJsMessage message = messages[i];
                 data.writeByte('"');
-                // FIXME: Really UTF-8 safe?
-                escapeJson(message.getMessage(), data);
+                char[] escaped = new JsonStringEncoder().quoteAsString(message.getMessage());
+                data.writeBytes(ChannelBuffers.copiedBuffer(escapeCharacters(escaped), CharsetUtil.UTF_8));
                 data.writeByte('"');
                 if (i < messages.length - 1) {
                     data.writeByte(',');
