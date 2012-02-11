@@ -38,10 +38,10 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         // FIXME: Check if session has expired
         // FIXME: Check if session is locked (another handler already uses it), all but WS can do this
 
-        setChannel(e.getChannel());
 
         if (state == State.CONNECTING) {
             setState(State.OPEN);
+            setChannel(e.getChannel());
             e.getChannel().write(Frame.openFrame());
             // FIXME: Ability to reject a connection here by returning false in callback to onOpen?
             service.onOpen(this);
@@ -49,9 +49,10 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             flush();
         } else if (state == State.OPEN) {
             if (channel != null) {
-                logger.debug("Session " + id + " already have a channel connected.");
+                logger.debug("Session " + id + " already have a channel connected. " + channel);
                 throw new LockException(channel);
             }
+            setChannel(e.getChannel());
             logger.debug("Session " + id + " is open, flushing..");
             flush();
         } else if (state == State.CLOSED) {
@@ -65,9 +66,6 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     @Override
     public synchronized void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         logger.debug("Session " + id + " underlying channel closed " + e.getChannel());
-        if (state == State.OPEN) {
-            state = State.CONNECTING;
-        }
         // FIXME: Stop any heartbeat
         // FIXME: Timer to expire the connection? Should not close session here.
         // FIXME: Notify the service? Unless timeout etc, disconnect it?
@@ -80,28 +78,6 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         SockJsMessage msg = (SockJsMessage)e.getMessage();
         logger.debug("Session " + id + " received message: " + msg.getMessage());
         service.onMessage(this, msg.getMessage());
-    }
-
-    @Override
-    public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-        if (e.getMessage() instanceof SockJsMessage) {
-            SockJsMessage message = (SockJsMessage) e.getMessage();
-            if (e.getMessage() instanceof String) {
-                message = new SockJsMessage((String) e.getMessage());
-            }
-
-            synchronized (this) {
-                // Check and see if we can send the message straight away
-                if (channel != null && channel.isWritable() && messageQueue.size() == 0) {
-                    channel.write(Frame.messageFrame(message));
-                } else {
-                    messageQueue.addLast(message);
-                    flush();
-                }
-            }
-        } else {
-            super.writeRequested(ctx, e);
-        }
     }
 
     @Override
@@ -157,7 +133,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             return;
         }
         this.channel = null;
-        logger.debug("Session " + id + " channel removed");
+        logger.debug("Session " + id + " channel removed. " + channel);
     }
 
     private synchronized void flush() {
@@ -165,12 +141,10 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             return;
         }
 
-        synchronized (messageQueue) {
-            if (messageQueue.size() > 0) {
-                logger.debug("Session " + id + " flushing queue");
-                channel.write(Frame.messageFrame(new ArrayList<SockJsMessage>(messageQueue).toArray(new SockJsMessage[messageQueue.size()])));
-                messageQueue.clear();
-            }
+        if (messageQueue.size() > 0) {
+            logger.debug("Session " + id + " flushing queue");
+            channel.write(Frame.messageFrame(new ArrayList<SockJsMessage>(messageQueue).toArray(new SockJsMessage[messageQueue.size()])));
+            messageQueue.clear();
         }
     }
 
