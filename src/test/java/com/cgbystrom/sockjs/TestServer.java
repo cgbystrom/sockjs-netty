@@ -49,6 +49,7 @@ public class TestServer {
         router.registerService("/echo", new EchoService());
         router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoService());
         router.registerService("/close", new CloseService());
+        router.registerService("/broadcast", new BroadcastService());
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             @Override
