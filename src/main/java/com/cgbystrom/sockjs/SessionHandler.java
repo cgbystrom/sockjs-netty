@@ -3,9 +3,11 @@ package com.cgbystrom.sockjs;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
+import org.jboss.netty.util.CharsetUtil;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Responsible for handling SockJS sessions.
@@ -15,13 +17,14 @@ import java.util.LinkedList;
  */
 public class SessionHandler extends SimpleChannelHandler implements Session {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(SessionHandler.class);
-    public enum State { CONNECTING, OPEN, CLOSED }
+    public enum State { CONNECTING, OPEN, CLOSED, INTERRUPTED }
 
     private String id;
     private Service service;
     private Channel channel;
     private State state = State.CONNECTING;
     private final LinkedList<SockJsMessage> messageQueue = new LinkedList<SockJsMessage>();
+    private final AtomicBoolean serverHasInitiatedClose = new AtomicBoolean(false);
 
     protected SessionHandler(String id, Service service) {
         this.id = id;
@@ -40,6 +43,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
 
         if (state == State.CONNECTING) {
+            serverHasInitiatedClose.set(false);
             setState(State.OPEN);
             setChannel(e.getChannel());
             e.getChannel().write(Frame.openFrame());
@@ -52,20 +56,50 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
                 logger.debug("Session " + id + " already have a channel connected. " + channel);
                 throw new LockException(channel);
             }
+            serverHasInitiatedClose.set(false);
             setChannel(e.getChannel());
             logger.debug("Session " + id + " is open, flushing..");
             flush();
         } else if (state == State.CLOSED) {
             logger.debug("Session " + id + " is closed, go away.");
-            e.getChannel().write(Frame.closeFrame(3000, "Go away!")).addListener(ChannelFutureListener.CLOSE);
+            e.getChannel().write(Frame.closeFrame(3000, "Go away!"));//.addListener(ChannelFutureListener.CLOSE);
+        } else if (state == State.INTERRUPTED) {
+            logger.debug("Session " + id + " has been interrupted by network error, cannot accept channel.");
+            e.getChannel().write(Frame.closeFrame(1002, "Connection interrupted"));//.addListener(ChannelFutureListener.CLOSE);
         } else {
             throw new Exception("Invalid channel state: " + state);
         }
     }
 
     @Override
+    public synchronized void closeRequested(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+        if (channel == e.getChannel()) {
+            // This may be a bad practice of determining close initiator.
+            // See http://stackoverflow.com/questions/8254060/how-to-know-if-a-channeldisconnected-comes-from-the-client-or-server-in-a-netty
+            logger.debug("Session " + id + " requested close by server " + e.getChannel());
+            serverHasInitiatedClose.set(true);
+        }
+        super.closeRequested(ctx, e);
+    }
+
+    @Override
+    public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+        if (e.getMessage() instanceof Frame) {
+            Frame f = (Frame) e.getMessage();
+            String data = f.getData().toString(CharsetUtil.UTF_8);
+            logger.debug("Session " + id + " for channel " + e.getChannel() + " sending: " + data);
+        }
+        super.writeRequested(ctx, e);
+    }
+
+    @Override
     public synchronized void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        logger.debug("Session " + id + " underlying channel closed " + e.getChannel());
+        if (state == State.OPEN && !serverHasInitiatedClose.get()) {
+            logger.debug("Session " + id + " underlying channel closed unexpectedly. Flagging session as interrupted." + e.getChannel());
+            setState(State.INTERRUPTED);
+        } else {
+            logger.debug("Session " + id + " underlying channel closed " + e.getChannel());
+        }
         // FIXME: Stop any heartbeat
         // FIXME: Timer to expire the connection? Should not close session here.
         // FIXME: Notify the service? Unless timeout etc, disconnect it?
@@ -110,7 +144,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             logger.debug("Session " + id + " code initiated close, closing...");
             if (channel != null) {
                 setState(State.CLOSED);
-                channel.write(Frame.closeFrame(code, message)).addListener(ChannelFutureListener.CLOSE);
+                channel.write(Frame.closeFrame(code, message));//.addListener(ChannelFutureListener.CLOSE);
                 // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
                 // FIXME: Save this close code and reason
                 service.onClose(this);

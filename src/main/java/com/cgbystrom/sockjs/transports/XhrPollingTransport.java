@@ -21,6 +21,7 @@ public class XhrPollingTransport extends BaseTransport {
             response.setHeader(CONTENT_LENGTH, content.readableBytes());
             response.setHeader(CONNECTION, CLOSE);
             response.setContent(content);
+            e.getFuture().addListener(ChannelFutureListener.CLOSE);
             ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), e.getFuture(), response, e.getRemoteAddress()));
         } else {
             super.writeRequested(ctx, e);

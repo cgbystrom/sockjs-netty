@@ -28,6 +28,10 @@ public class XhrStreamingTransport extends StreamingTransport {
             }
             final Frame frame = (Frame) e.getMessage();
             ChannelBuffer content = Frame.encode(frame, true);
+            
+            if (frame instanceof Frame.CloseFrame) {
+                e.getFuture().addListener(ChannelFutureListener.CLOSE);
+            }
 
             ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), e.getFuture(), new DefaultHttpChunk(content), e.getRemoteAddress()));
             logResponseSize(e.getChannel(), content);

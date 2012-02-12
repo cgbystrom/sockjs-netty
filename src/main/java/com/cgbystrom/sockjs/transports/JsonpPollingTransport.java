@@ -43,6 +43,8 @@ public class JsonpPollingTransport extends BaseTransport {
             Frame.escapeJson(Frame.encode(frame, false), escapedContent);
             String m = jsonpCallback + "(\"" + escapedContent.toString(CharsetUtil.UTF_8) + "\");\r\n";
 
+            e.getFuture().addListener(ChannelFutureListener.CLOSE);
+            
             final ChannelBuffer content = ChannelBuffers.copiedBuffer(m, CharsetUtil.UTF_8);
             response.setContent(content);
             response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, content.readableBytes());

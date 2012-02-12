@@ -148,10 +148,20 @@ public class WebSocketTransport extends SimpleChannelHandler {
     }
 
     @Override
-    public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+    public void writeRequested(ChannelHandlerContext ctx, final MessageEvent e) throws Exception {
         if (e.getMessage() instanceof Frame) {
             Frame f = (Frame) e.getMessage();
             logger.debug("Write requested for " + f.getClass().getSimpleName());
+            if (f instanceof Frame.CloseFrame) {
+                e.getFuture().addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        // FIXME: Should really send close frame here?
+                        // handshaker.close(e.getChannel(), new CloseWebSocketFrame()); ?
+                        e.getChannel().close();
+                    }
+                });
+            }
             TextWebSocketFrame message = new TextWebSocketFrame(Frame.encode((Frame) e.getMessage(), false));
             super.writeRequested(ctx, new DownstreamMessageEvent(e.getChannel(), e.getFuture(), message, e.getRemoteAddress()));
         } else {
