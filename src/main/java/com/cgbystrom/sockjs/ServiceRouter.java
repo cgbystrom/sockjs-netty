@@ -78,6 +78,11 @@ public class ServiceRouter extends SimpleChannelHandler {
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
             response.setContent(getInfo(service.isWebSocketEnabled()));
             e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        } else if (path.startsWith("/websocket")) {
+            // Raw web socket
+            ctx.getPipeline().addLast("sockjs-websocket", new RawWebSocketTransport(path));
+            SessionHandler sessionHandler = getOrCreateSession(baseUrl, "rawwebsocket-" + random.nextLong(), service);
+            ctx.getPipeline().addLast("sockjs-session-handler", sessionHandler);
         } else {
             if (!handleSession(ctx, e, baseUrl, path, service)) {
                 response.setStatus(HttpResponseStatus.NOT_FOUND);

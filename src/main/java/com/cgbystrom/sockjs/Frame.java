@@ -156,7 +156,10 @@ public abstract class Frame {
     }
 
     public static class MessageFrame extends Frame {
+        private SockJsMessage[] messages;
+
         private MessageFrame(SockJsMessage... messages) {
+            this.messages = messages;
             data = ChannelBuffers.dynamicBuffer();
             data.writeByte('a');
             data.writeByte('[');
@@ -172,6 +175,10 @@ public abstract class Frame {
             }
 
             data.writeByte(']');
+        }
+
+        public SockJsMessage[] getMessages() {
+            return messages;
         }
     }
 
