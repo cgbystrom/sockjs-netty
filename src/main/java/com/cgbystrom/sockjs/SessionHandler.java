@@ -20,15 +20,15 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     public enum State { CONNECTING, OPEN, CLOSED, INTERRUPTED }
 
     private String id;
-    private Service service;
+    private SessionCallback sessionCallback;
     private Channel channel;
     private State state = State.CONNECTING;
     private final LinkedList<SockJsMessage> messageQueue = new LinkedList<SockJsMessage>();
     private final AtomicBoolean serverHasInitiatedClose = new AtomicBoolean(false);
 
-    protected SessionHandler(String id, Service service) {
+    protected SessionHandler(String id, SessionCallback sessionCallback) {
         this.id = id;
-        this.service = service;
+        this.sessionCallback = sessionCallback;
         if (logger.isDebugEnabled())
             logger.debug("Session " + id + " created");
     }
@@ -48,7 +48,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             setChannel(e.getChannel());
             e.getChannel().write(Frame.openFrame());
             // FIXME: Ability to reject a connection here by returning false in callback to onOpen?
-            service.onOpen(this);
+            sessionCallback.onOpen(this);
             // FIXME: Either start the heartbeat or flush pending messages in queue
             flush();
         } else if (state == State.OPEN) {
@@ -102,7 +102,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         }
         // FIXME: Stop any heartbeat
         // FIXME: Timer to expire the connection? Should not close session here.
-        // FIXME: Notify the service? Unless timeout etc, disconnect it?
+        // FIXME: Notify the sessionCallback? Unless timeout etc, disconnect it?
         removeChannel(e.getChannel());
         super.channelClosed(ctx, e);
     }
@@ -111,12 +111,12 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         SockJsMessage msg = (SockJsMessage)e.getMessage();
         logger.debug("Session " + id + " received message: " + msg.getMessage());
-        service.onMessage(this, msg.getMessage());
+        sessionCallback.onMessage(msg.getMessage());
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-        boolean shouldSilence = service.onError(this, e.getCause());
+        boolean shouldSilence = sessionCallback.onError(e.getCause());
         if (!shouldSilence) {
             super.exceptionCaught(ctx, e);
         }
@@ -147,7 +147,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
                 channel.write(Frame.closeFrame(code, message));//.addListener(ChannelFutureListener.CLOSE);
                 // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
                 // FIXME: Save this close code and reason
-                service.onClose(this);
+                sessionCallback.onClose();
             }
         }
     }
@@ -184,7 +184,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     public static class NotFoundException extends Exception {
         public NotFoundException(String baseUrl, String sessionId) {
-            super("Session '" + sessionId + "' not found in service '" + baseUrl + "'");
+            super("Session '" + sessionId + "' not found in sessionCallback '" + baseUrl + "'");
         }
     }
 

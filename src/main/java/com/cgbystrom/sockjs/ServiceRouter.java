@@ -24,15 +24,26 @@ public class ServiceRouter extends SimpleChannelHandler {
     private static final Random random = new Random();
 
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, SessionHandler>> serviceSessions = new ConcurrentHashMap<String, ConcurrentHashMap<String, SessionHandler>>();
-    private final Map<String, Service> services = new LinkedHashMap<String, Service>();
+    private final Map<String, SessionCallbackFactory> services = new LinkedHashMap<String, SessionCallbackFactory>();
     private IframePage iframe;
+    private final Object sessionCreateLock = new Object();
 
     public ServiceRouter() {
         this.iframe = new IframePage(CLIENT_URL);
     }
 
-    public void registerService(String baseUrl, Service service) {
-        services.put(baseUrl, service);
+    public void registerService(String baseUrl, final SessionCallback service) {
+        services.put(baseUrl, new SessionCallbackFactory() {
+            @Override
+            public SessionCallback getSession(String id) throws Exception {
+                return service;
+            }
+        });
+        serviceSessions.put(baseUrl, new ConcurrentHashMap<String, SessionHandler>());
+    }
+
+    public void registerService(String baseUrl, SessionCallbackFactory sessionFactory) {
+        services.put(baseUrl, sessionFactory);
         serviceSessions.put(baseUrl, new ConcurrentHashMap<String, SessionHandler>());
     }
 
@@ -42,12 +53,12 @@ public class ServiceRouter extends SimpleChannelHandler {
         if (logger.isDebugEnabled())
             logger.debug("URI " + request.getUri());
 
-        for (Map.Entry<String, Service> entry : services.entrySet()) {
+        for (Map.Entry<String, SessionCallbackFactory> entry : services.entrySet()) {
             // Check if there's a service registered with this URL
             String baseUrl = entry.getKey();
-            Service service = entry.getValue();
+            SessionCallbackFactory factory = entry.getValue();
             if (request.getUri().startsWith(baseUrl)) {
-                handleService(ctx, e, baseUrl, service);
+                handleService(ctx, e, baseUrl, factory);
                 super.messageReceived(ctx, e);
                 return;
             }
@@ -59,7 +70,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
-    private void handleService(ChannelHandlerContext ctx, MessageEvent e, String baseUrl, Service service) throws Exception {
+    private void handleService(ChannelHandlerContext ctx, MessageEvent e, String baseUrl, SessionCallbackFactory factory) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
         request.setUri(request.getUri().replaceFirst(baseUrl, ""));
         QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
@@ -76,15 +87,16 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (path.startsWith("/info")) {
             response.setHeader(CONTENT_TYPE, "application/json; charset=UTF-8");
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
-            response.setContent(getInfo(service.isWebSocketEnabled()));
+            // FIXME::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+            response.setContent(getInfo(true));
             e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         } else if (path.startsWith("/websocket")) {
             // Raw web socket
             ctx.getPipeline().addLast("sockjs-websocket", new RawWebSocketTransport(path));
-            SessionHandler sessionHandler = getOrCreateSession(baseUrl, "rawwebsocket-" + random.nextLong(), service);
+            SessionHandler sessionHandler = getOrCreateSession(baseUrl, "rawwebsocket-" + random.nextLong(), factory);
             ctx.getPipeline().addLast("sockjs-session-handler", sessionHandler);
         } else {
-            if (!handleSession(ctx, e, baseUrl, path, service)) {
+            if (!handleSession(ctx, e, baseUrl, path, factory)) {
                 response.setStatus(HttpResponseStatus.NOT_FOUND);
                 response.setContent(ChannelBuffers.copiedBuffer("Not found", CharsetUtil.UTF_8));
                 e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
@@ -92,7 +104,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
     }
 
-    private boolean handleSession(ChannelHandlerContext ctx, MessageEvent e, String baseUrl, String path, Service service) throws SessionHandler.NotFoundException {
+    private boolean handleSession(ChannelHandlerContext ctx, MessageEvent e, String baseUrl, String path, SessionCallbackFactory factory) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
         Matcher m = SERVER_SESSION.matcher(path);
 
@@ -131,13 +143,13 @@ public class ServiceRouter extends SimpleChannelHandler {
             ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         }
 
-        SessionHandler sessionHandler = expectExistingSession ? getSession(baseUrl, sessionId) : getOrCreateSession(baseUrl, sessionId, service);
+        SessionHandler sessionHandler = expectExistingSession ? getSession(baseUrl, sessionId) : getOrCreateSession(baseUrl, sessionId, factory);
         pipeline.addLast("sockjs-session-handler", sessionHandler);
 
         return true;
     }
 
-    private SessionHandler getOrCreateSession(String baseUrl, String sessionId, Service service) {
+    private SessionHandler getOrCreateSession(String baseUrl, String sessionId, SessionCallbackFactory factory) throws Exception {
         ConcurrentHashMap<String, SessionHandler> sessions = serviceSessions.get(baseUrl);
         SessionHandler s = sessions.get(sessionId);
 
@@ -145,9 +157,12 @@ public class ServiceRouter extends SimpleChannelHandler {
             return s;
         }
 
-        SessionHandler newSession = new SessionHandler(sessionId, service);
-        SessionHandler existingSession = sessions.putIfAbsent(sessionId, newSession);
-        return (existingSession == null) ? newSession : existingSession;
+        synchronized (sessionCreateLock) {
+            SessionCallback callback = factory.getSession(sessionId);
+            SessionHandler newSession = new SessionHandler(sessionId, callback);
+            SessionHandler existingSession = sessions.putIfAbsent(sessionId, newSession);
+            return (existingSession == null) ? newSession : existingSession;
+        }
     }
 
     private SessionHandler getSession(String baseUrl, String sessionId) throws SessionHandler.NotFoundException {
