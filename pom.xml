@@ -99,6 +99,19 @@
             </plugin>
         </plugins>
     </build>
+    
+    <distributionManagement>
+        <snapshotRepository>
+            <id>esn.nexus.snapshots.dist</id>
+            <name>ESN Internal Distribution Nexus</name>
+            <url>http://nexus.services.esn/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>esn.nexus.releases.dist</id>
+            <name>ESN Internal Distribution Nexus</name>
+            <url>http://nexus.services.esn/content/repositories/releases</url>
+        </repository>
+    </distributionManagement>
 
     <repositories>
         <repository>
