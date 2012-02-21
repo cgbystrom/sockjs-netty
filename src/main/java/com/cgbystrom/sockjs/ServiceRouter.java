@@ -23,28 +23,24 @@ public class ServiceRouter extends SimpleChannelHandler {
     private static final Pattern SERVER_SESSION = Pattern.compile("^/([^/.]+)/([^/.]+)/");
     private static final Random random = new Random();
 
-    private final ConcurrentHashMap<String, ConcurrentHashMap<String, SessionHandler>> serviceSessions = new ConcurrentHashMap<String, ConcurrentHashMap<String, SessionHandler>>();
-    private final Map<String, SessionCallbackFactory> services = new LinkedHashMap<String, SessionCallbackFactory>();
+    private final Map<String, ServiceMetadata> services = new LinkedHashMap<String, ServiceMetadata>();
     private IframePage iframe;
-    private final Object sessionCreateLock = new Object();
 
     public ServiceRouter() {
         this.iframe = new IframePage(CLIENT_URL);
     }
 
-    public void registerService(String baseUrl, final SessionCallback service) {
-        services.put(baseUrl, new SessionCallbackFactory() {
+    public synchronized void registerService(String baseUrl, final SessionCallback service, boolean isWebSocketEnabled) {
+        registerService(baseUrl, new SessionCallbackFactory() {
             @Override
             public SessionCallback getSession(String id) throws Exception {
                 return service;
             }
-        });
-        serviceSessions.put(baseUrl, new ConcurrentHashMap<String, SessionHandler>());
+        }, isWebSocketEnabled);
     }
 
-    public void registerService(String baseUrl, SessionCallbackFactory sessionFactory) {
-        services.put(baseUrl, sessionFactory);
-        serviceSessions.put(baseUrl, new ConcurrentHashMap<String, SessionHandler>());
+    public synchronized void registerService(String baseUrl, SessionCallbackFactory sessionFactory, boolean isWebSocketEnabled) {
+        services.put(baseUrl, new ServiceMetadata(baseUrl, sessionFactory, new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled));
     }
 
     @Override
@@ -53,12 +49,10 @@ public class ServiceRouter extends SimpleChannelHandler {
         if (logger.isDebugEnabled())
             logger.debug("URI " + request.getUri());
 
-        for (Map.Entry<String, SessionCallbackFactory> entry : services.entrySet()) {
+        for (ServiceMetadata serviceMetadata : services.values()) {
             // Check if there's a service registered with this URL
-            String baseUrl = entry.getKey();
-            SessionCallbackFactory factory = entry.getValue();
-            if (request.getUri().startsWith(baseUrl)) {
-                handleService(ctx, e, baseUrl, factory);
+            if (request.getUri().startsWith(serviceMetadata.url)) {
+                handleService(ctx, e, serviceMetadata);
                 super.messageReceived(ctx, e);
                 return;
             }
@@ -70,9 +64,9 @@ public class ServiceRouter extends SimpleChannelHandler {
         e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
-    private void handleService(ChannelHandlerContext ctx, MessageEvent e, String baseUrl, SessionCallbackFactory factory) throws Exception {
+    private void handleService(ChannelHandlerContext ctx, MessageEvent e, ServiceMetadata serviceMetadata) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
-        request.setUri(request.getUri().replaceFirst(baseUrl, ""));
+        request.setUri(request.getUri().replaceFirst(serviceMetadata.url, ""));
         QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
         String path = qsd.getPath();
 
@@ -87,16 +81,15 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (path.startsWith("/info")) {
             response.setHeader(CONTENT_TYPE, "application/json; charset=UTF-8");
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
-            // FIXME::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-            response.setContent(getInfo(true));
+            response.setContent(getInfo(serviceMetadata.isWebSocketEnabled));
             e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         } else if (path.startsWith("/websocket")) {
             // Raw web socket
             ctx.getPipeline().addLast("sockjs-websocket", new RawWebSocketTransport(path));
-            SessionHandler sessionHandler = getOrCreateSession(baseUrl, "rawwebsocket-" + random.nextLong(), factory);
+            SessionHandler sessionHandler = getOrCreateSession(serviceMetadata.url, "rawwebsocket-" + random.nextLong(), serviceMetadata.factory);
             ctx.getPipeline().addLast("sockjs-session-handler", sessionHandler);
         } else {
-            if (!handleSession(ctx, e, baseUrl, path, factory)) {
+            if (!handleSession(ctx, e, serviceMetadata.url, path, serviceMetadata.factory)) {
                 response.setStatus(HttpResponseStatus.NOT_FOUND);
                 response.setContent(ChannelBuffers.copiedBuffer("Not found", CharsetUtil.UTF_8));
                 e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
@@ -149,24 +142,22 @@ public class ServiceRouter extends SimpleChannelHandler {
         return true;
     }
 
-    private SessionHandler getOrCreateSession(String baseUrl, String sessionId, SessionCallbackFactory factory) throws Exception {
-        ConcurrentHashMap<String, SessionHandler> sessions = serviceSessions.get(baseUrl);
+    private synchronized SessionHandler getOrCreateSession(String baseUrl, String sessionId, SessionCallbackFactory factory) throws Exception {
+        ConcurrentHashMap<String, SessionHandler> sessions = services.get(baseUrl).sessions;
         SessionHandler s = sessions.get(sessionId);
 
         if (s != null) {
             return s;
         }
 
-        synchronized (sessionCreateLock) {
-            SessionCallback callback = factory.getSession(sessionId);
-            SessionHandler newSession = new SessionHandler(sessionId, callback);
-            SessionHandler existingSession = sessions.putIfAbsent(sessionId, newSession);
-            return (existingSession == null) ? newSession : existingSession;
-        }
+        SessionCallback callback = factory.getSession(sessionId);
+        SessionHandler newSession = new SessionHandler(sessionId, callback);
+        SessionHandler existingSession = sessions.putIfAbsent(sessionId, newSession);
+        return (existingSession == null) ? newSession : existingSession;
     }
 
-    private SessionHandler getSession(String baseUrl, String sessionId) throws SessionHandler.NotFoundException {
-        ConcurrentHashMap<String, SessionHandler> sessions = serviceSessions.get(baseUrl);
+    private synchronized SessionHandler getSession(String baseUrl, String sessionId) throws SessionHandler.NotFoundException {
+        ConcurrentHashMap<String, SessionHandler> sessions = services.get(baseUrl).sessions;
         SessionHandler s = sessions.get(sessionId);
 
         if (s == null) {
@@ -188,5 +179,19 @@ public class ServiceRouter extends SimpleChannelHandler {
         sb.append(random.nextInt());
         sb.append("}");
         return ChannelBuffers.copiedBuffer(sb.toString(), CharsetUtil.UTF_8);
+    }
+
+    private static class ServiceMetadata {
+        private ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String, SessionHandler> sessions, boolean isWebSocketEnabled) {
+            this.url = url;
+            this.factory = factory;
+            this.sessions = sessions;
+            this.isWebSocketEnabled = isWebSocketEnabled;
+        }
+
+        public String url;
+        public SessionCallbackFactory factory;
+        public ConcurrentHashMap<String, SessionHandler> sessions;
+        public boolean isWebSocketEnabled;
     }
 }
