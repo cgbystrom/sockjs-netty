@@ -212,6 +212,11 @@ public class WebSocketTransport extends SimpleChannelHandler {
             req.setHeader(CONNECTION, UPGRADE);
         }
 
+        // If we get WS version 7, treat it as 8 as they are almost identical. (Really true?)
+        String wsVersionHeader = req.getHeader(SEC_WEBSOCKET_VERSION);
+        if (wsVersionHeader != null && wsVersionHeader.equals("7")) {
+            req.setHeader(SEC_WEBSOCKET_VERSION, "8");
+        }
 
         // Handshake
         WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(getWebSocketLocation(req), "chat, superchat", false);
