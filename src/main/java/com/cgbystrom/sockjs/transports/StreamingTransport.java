@@ -1,13 +1,8 @@
 package com.cgbystrom.sockjs.transports;
 
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.channel.*;
+import org.jboss.netty.handler.codec.http.*;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,12 +29,21 @@ public class StreamingTransport extends BaseTransport {
     /** Keep track if ending HTTP chunk has been sent */
     private AtomicBoolean lastChunkSent = new AtomicBoolean(false);
 
+    /** Save a reference to the initating HTTP request */
+    private HttpRequest request;
+
     public StreamingTransport() {
         this.maxResponseSize = 128 * 1024; // 128 KiB
     }
 
     public StreamingTransport(int maxResponseSize) {
         this.maxResponseSize = maxResponseSize;
+    }
+
+    @Override
+    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+        request = (HttpRequest) e.getMessage();
+        super.messageReceived(ctx, e);
     }
 
     @Override
@@ -63,7 +67,9 @@ public class StreamingTransport extends BaseTransport {
     @Override
     protected HttpResponse createResponse(String contentType) {
         HttpResponse response = super.createResponse(contentType);
-        response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+        if (request.getProtocolVersion().equals(HttpVersion.HTTP_1_1)) {
+            response.setHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+        }
         return response;
     }
 }
