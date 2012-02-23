@@ -25,6 +25,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     private State state = State.CONNECTING;
     private final LinkedList<SockJsMessage> messageQueue = new LinkedList<SockJsMessage>();
     private final AtomicBoolean serverHasInitiatedClose = new AtomicBoolean(false);
+    private Frame.CloseFrame closeReason;
 
     protected SessionHandler(String id, SessionCallback sessionCallback) {
         this.id = id;
@@ -45,6 +46,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         if (state == State.CONNECTING) {
             serverHasInitiatedClose.set(false);
             setState(State.OPEN);
+            closeReason = null;
             setChannel(e.getChannel());
             e.getChannel().write(Frame.openFrame());
             // FIXME: Ability to reject a connection here by returning false in callback to onOpen?
@@ -62,7 +64,8 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             flush();
         } else if (state == State.CLOSED) {
             logger.debug("Session " + id + " is closed, go away.");
-            e.getChannel().write(Frame.closeFrame(3000, "Go away!"));//.addListener(ChannelFutureListener.CLOSE);
+            final Frame.CloseFrame frame = closeReason == null ? Frame.closeFrame(3000, "Go away!") : closeReason;
+            e.getChannel().write(frame);
         } else if (state == State.INTERRUPTED) {
             logger.debug("Session " + id + " has been interrupted by network error, cannot accept channel.");
             e.getChannel().write(Frame.closeFrame(1002, "Connection interrupted"));//.addListener(ChannelFutureListener.CLOSE);
@@ -141,14 +144,14 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     public synchronized void close(int code, String message) {
         if (state != State.CLOSED) {
-            logger.debug("Session " + id + " code initiated close, closing...");
-            if (channel != null) {
-                setState(State.CLOSED);
-                channel.write(Frame.closeFrame(code, message));//.addListener(ChannelFutureListener.CLOSE);
-                // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
-                // FIXME: Save this close code and reason
-                sessionCallback.onClose();
+            logger.debug("Session " + id + " server initiated close, closing...");
+            setState(State.CLOSED);
+            closeReason = Frame.closeFrame(code, message);
+            if (channel != null && channel.isWritable()) {
+                channel.write(closeReason);
             }
+            // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
+            sessionCallback.onClose();
         }
     }
 
