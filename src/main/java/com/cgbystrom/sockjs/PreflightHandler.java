@@ -29,6 +29,7 @@ public class PreflightHandler extends SimpleChannelHandler {
                     response.setHeader("Access-Control-Allow-Methods", "OPTIONS, GET");
                 }
 
+                response.setHeader("Access-Control-Allow-Headers", "Content-Type");
                 response.setHeader("Access-Control-Allow-Credentials", "true");
                 response.setHeader(HttpHeaders.Names.EXPIRES, "FIXME"); // FIXME: Fix this
                 response.setHeader(HttpHeaders.Names.SET_COOKIE, "JSESSIONID=dummy; path=/");
