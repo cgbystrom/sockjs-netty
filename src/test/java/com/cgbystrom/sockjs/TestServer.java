@@ -49,6 +49,7 @@ public class TestServer {
         router.registerService("/echo", new EchoSession(), true);
         router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false);
         router.registerService("/close", new CloseSession(), true);
+        router.registerService("/amplify", new AmplifySession(), true);
         router.registerService("/broadcast", new SessionCallbackFactory() {
             @Override
             public BroadcastSession getSession(String id) throws Exception {
