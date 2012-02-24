@@ -29,8 +29,6 @@ public class StreamingTransport extends BaseTransport {
     /** Keep track if ending HTTP chunk has been sent */
     private AtomicBoolean lastChunkSent = new AtomicBoolean(false);
 
-    /** Save a reference to the initating HTTP request */
-    private HttpRequest request;
 
     public StreamingTransport() {
         this.maxResponseSize = 128 * 1024; // 128 KiB
@@ -38,12 +36,6 @@ public class StreamingTransport extends BaseTransport {
 
     public StreamingTransport(int maxResponseSize) {
         this.maxResponseSize = maxResponseSize;
-    }
-
-    @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-        request = (HttpRequest) e.getMessage();
-        super.messageReceived(ctx, e);
     }
 
     @Override

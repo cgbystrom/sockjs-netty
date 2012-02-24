@@ -26,6 +26,9 @@ public class BaseTransport extends SimpleChannelHandler {
 
     protected String cookie = DEFAULT_COOKIE;
 
+    /** Save a reference to the initating HTTP request */
+    protected HttpRequest request;
+
     public static void respond(Channel channel, HttpResponseStatus status, String message) throws Exception {
         // TODO: Why aren't response data defined in SockJS for error messages?
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_0, status);
@@ -54,7 +57,8 @@ public class BaseTransport extends SimpleChannelHandler {
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-        handleCookie((HttpRequest) e.getMessage());
+        request = (HttpRequest) e.getMessage();
+        handleCookie(request);
 
         // Since we have silenced the usual channel state events for open and connected for the socket,
         // we must notify handlers downstream to now consider this connection connected.
@@ -76,7 +80,8 @@ public class BaseTransport extends SimpleChannelHandler {
     }
 
     protected HttpResponse createResponse(String contentType) {
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_0, HttpResponseStatus.OK);
+        final HttpVersion version = request.getProtocolVersion();
+        HttpResponse response = new DefaultHttpResponse(version, HttpResponseStatus.OK);
         response.setHeader(CONTENT_TYPE, contentType);
         response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
         response.setHeader("Access-Control-Allow-Origin", "*");
