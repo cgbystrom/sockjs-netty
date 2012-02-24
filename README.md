@@ -21,5 +21,19 @@ Intention is to make it available through Maven Central once it is stable enough
     
 That will output a JAR inside the ```target/``` folder.
 
+## Running the test server
+Right now everything is packaged as a library rather than a ready-to-run server.
+But there is a test server included that serves as an example and is also used for verifying the tests provided by the SockJS project.
+
+Until a prebuilt Java binary, a JAR, is shipped you'll need to compile and run the project with Maven.
+(Maven is a Java build tool used by the project).
+
+Running the server:
+
+ 1. Install Maven ([Download it](http://maven.apache.org/download.html), 3.x should be fine, even 2.x. Or use your favorite package manager)
+ 1. Clone the project
+ 1. Run ```mvn exec:java -Dexec.mainClass="com.cgbystrom.sockjs.TestServer" -Dexec.classpathScope=test -e``` from your cloned project directory.
+
 ## What's missing?
 Currently, not all tests provided by the SockJS protocol pass. As mentioned, it is still work in progress and the goal is naturally to be 100% compatible with the protocol.
+The tests currently not passing are the ones testing Web Socket edge cases.
