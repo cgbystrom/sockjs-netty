@@ -46,16 +46,16 @@ public class TestServer {
                         Executors.newCachedThreadPool()));
 
         final ServiceRouter router = new ServiceRouter();
-        router.registerService("/echo", new EchoSession(), true);
-        router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false);
-        router.registerService("/close", new CloseSession(), true);
-        router.registerService("/amplify", new AmplifySession(), true);
+        router.registerService("/echo", new EchoSession(), true, 4096);
+        router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false, 128 * 1024);
+        router.registerService("/close", new CloseSession(), true, 128 * 1024);
+        router.registerService("/amplify", new AmplifySession(), true, 128 * 1024);
         router.registerService("/broadcast", new SessionCallbackFactory() {
             @Override
             public BroadcastSession getSession(String id) throws Exception {
                 return new BroadcastSession();
             }
-        }, true);
+        }, true, 128 * 1024);
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             @Override

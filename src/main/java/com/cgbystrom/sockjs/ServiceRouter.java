@@ -30,17 +30,17 @@ public class ServiceRouter extends SimpleChannelHandler {
         this.iframe = new IframePage(CLIENT_URL);
     }
 
-    public synchronized void registerService(String baseUrl, final SessionCallback service, boolean isWebSocketEnabled) {
+    public synchronized void registerService(String baseUrl, final SessionCallback service, boolean isWebSocketEnabled, int maxResponseSize) {
         registerService(baseUrl, new SessionCallbackFactory() {
             @Override
             public SessionCallback getSession(String id) throws Exception {
                 return service;
             }
-        }, isWebSocketEnabled);
+        }, isWebSocketEnabled, maxResponseSize);
     }
 
-    public synchronized void registerService(String baseUrl, SessionCallbackFactory sessionFactory, boolean isWebSocketEnabled) {
-        services.put(baseUrl, new ServiceMetadata(baseUrl, sessionFactory, new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled));
+    public synchronized void registerService(String baseUrl, SessionCallbackFactory sessionFactory, boolean isWebSocketEnabled, int maxResponseSize) {
+        services.put(baseUrl, new ServiceMetadata(baseUrl, sessionFactory, new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled, maxResponseSize));
     }
 
     @Override
@@ -89,7 +89,7 @@ public class ServiceRouter extends SimpleChannelHandler {
             SessionHandler sessionHandler = getOrCreateSession(serviceMetadata.url, "rawwebsocket-" + random.nextLong(), serviceMetadata.factory);
             ctx.getPipeline().addLast("sockjs-session-handler", sessionHandler);
         } else {
-            if (!handleSession(ctx, e, serviceMetadata.url, path, serviceMetadata.factory)) {
+            if (!handleSession(ctx, e, path, serviceMetadata)) {
                 response.setStatus(HttpResponseStatus.NOT_FOUND);
                 response.setContent(ChannelBuffers.copiedBuffer("Not found", CharsetUtil.UTF_8));
                 e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
@@ -97,7 +97,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
     }
 
-    private boolean handleSession(ChannelHandlerContext ctx, MessageEvent e, String baseUrl, String path, SessionCallbackFactory factory) throws Exception {
+    private boolean handleSession(ChannelHandlerContext ctx, MessageEvent e, String path, ServiceMetadata serviceMetadata) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
         Matcher m = SERVER_SESSION.matcher(path);
 
@@ -118,17 +118,17 @@ public class ServiceRouter extends SimpleChannelHandler {
             pipeline.addLast("sockjs-jsonp-send", new XhrSendTransport(true));
             expectExistingSession = true;
         } else if (transport.equals("/xhr_streaming")) {
-            pipeline.addLast("sockjs-xhr-streaming", new XhrStreamingTransport(4096));
+            pipeline.addLast("sockjs-xhr-streaming", new XhrStreamingTransport(serviceMetadata.maxResponseSize));
         } else if (transport.equals("/xhr")) {
             pipeline.addLast("sockjs-xhr-polling", new XhrPollingTransport());
         } else if (transport.equals("/jsonp")) {
             pipeline.addLast("sockjs-jsonp-polling", new JsonpPollingTransport());
         } else if (transport.equals("/htmlfile")) {
-            pipeline.addLast("sockjs-htmlfile-polling", new HtmlFileTransport(4096));
+            pipeline.addLast("sockjs-htmlfile-polling", new HtmlFileTransport(serviceMetadata.maxResponseSize));
         } else if (transport.equals("/eventsource")) {
-            pipeline.addLast("sockjs-eventsource", new EventSourceTransport(4096));
+            pipeline.addLast("sockjs-eventsource", new EventSourceTransport(serviceMetadata.maxResponseSize));
         } else if (transport.equals("/websocket")) {
-            pipeline.addLast("sockjs-websocket", new WebSocketTransport(path, 4096));
+            pipeline.addLast("sockjs-websocket", new WebSocketTransport(path, serviceMetadata.maxResponseSize));
         } else {
             HttpResponse response = new DefaultHttpResponse(request.getProtocolVersion(), HttpResponseStatus.NOT_FOUND);
             response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
@@ -136,7 +136,7 @@ public class ServiceRouter extends SimpleChannelHandler {
             ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         }
 
-        SessionHandler sessionHandler = expectExistingSession ? getSession(baseUrl, sessionId) : getOrCreateSession(baseUrl, sessionId, factory);
+        SessionHandler sessionHandler = expectExistingSession ? getSession(serviceMetadata.url, sessionId) : getOrCreateSession(serviceMetadata.url, sessionId, serviceMetadata.factory);
         pipeline.addLast("sockjs-session-handler", sessionHandler);
 
         return true;
@@ -182,16 +182,18 @@ public class ServiceRouter extends SimpleChannelHandler {
     }
 
     private static class ServiceMetadata {
-        private ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String, SessionHandler> sessions, boolean isWebSocketEnabled) {
+        private ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String, SessionHandler> sessions, boolean isWebSocketEnabled, int maxResponseSize) {
             this.url = url;
             this.factory = factory;
             this.sessions = sessions;
             this.isWebSocketEnabled = isWebSocketEnabled;
+            this.maxResponseSize = maxResponseSize;
         }
 
         public String url;
         public SessionCallbackFactory factory;
         public ConcurrentHashMap<String, SessionHandler> sessions;
         public boolean isWebSocketEnabled;
+        public int maxResponseSize;
     }
 }
