@@ -81,7 +81,10 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (path.startsWith("/info")) {
             response.setHeader(CONTENT_TYPE, "application/json; charset=UTF-8");
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
-            response.setContent(getInfo(serviceMetadata.isWebSocketEnabled));
+            response.setHeader(CONNECTION, "close");
+            ChannelBuffer content = getInfo(serviceMetadata.isWebSocketEnabled);
+            response.setHeader(CONTENT_LENGTH, content.readableBytes());
+            response.setContent(content);
             e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         } else if (path.startsWith("/websocket")) {
             // Raw web socket

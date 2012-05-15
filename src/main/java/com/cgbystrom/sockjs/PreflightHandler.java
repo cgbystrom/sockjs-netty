@@ -44,7 +44,7 @@ public class PreflightHandler extends SimpleChannelHandler {
     public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         if (e.getMessage() instanceof HttpResponse) {
             HttpResponse response = (HttpResponse)e.getMessage();
-            response.setHeader("Access-Control-Allow-Origin", origin == null ? "*" : origin);
+            response.setHeader("Access-Control-Allow-Origin", origin == null || "null".equals(origin) ? "*" : origin);
             response.setHeader("Access-Control-Allow-Credentials", "true");
         }
         super.writeRequested(ctx, e);
