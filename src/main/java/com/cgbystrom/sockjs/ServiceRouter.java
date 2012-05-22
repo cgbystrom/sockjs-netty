@@ -61,9 +61,9 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
 
         // No match for service found, return 404
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_0, HttpResponseStatus.NOT_FOUND);
+        HttpResponse response = new DefaultHttpResponse(request.getProtocolVersion(), HttpResponseStatus.NOT_FOUND);
         response.setContent(ChannelBuffers.copiedBuffer("Not found", CharsetUtil.UTF_8));
-        e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        writeResponse(e.getChannel(), request, response);
     }
 
     @Override
@@ -84,7 +84,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
         String path = qsd.getPath();
 
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_0, HttpResponseStatus.OK);
+        HttpResponse response = new DefaultHttpResponse(request.getProtocolVersion(), HttpResponseStatus.OK);
         if (path.equals("") || path.equals("/")) {
             response.setHeader(CONTENT_TYPE, BaseTransport.CONTENT_TYPE_PLAIN);
             response.setContent(ChannelBuffers.copiedBuffer("Welcome to SockJS!\n", CharsetUtil.UTF_8));
@@ -106,7 +106,7 @@ public class ServiceRouter extends SimpleChannelHandler {
             if (!handleSession(ctx, e, path, serviceMetadata)) {
                 response.setStatus(HttpResponseStatus.NOT_FOUND);
                 response.setContent(ChannelBuffers.copiedBuffer("Not found", CharsetUtil.UTF_8));
-                e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+                writeResponse(e.getChannel(), request, response);
             }
         }
     }
@@ -144,10 +144,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (transport.equals("/websocket")) {
             pipeline.addLast("sockjs-websocket", new WebSocketTransport(path, serviceMetadata.maxResponseSize));
         } else {
-            HttpResponse response = new DefaultHttpResponse(request.getProtocolVersion(), HttpResponseStatus.NOT_FOUND);
-            response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
-            response.setContent(ChannelBuffers.copiedBuffer("Unknown transport: " + transport + "\n", CharsetUtil.UTF_8));
-            ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            return false;
         }
 
         SessionHandler sessionHandler = expectExistingSession ? getSession(serviceMetadata.url, sessionId) : getOrCreateSession(serviceMetadata.url, sessionId, serviceMetadata.factory);
