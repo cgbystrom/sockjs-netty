@@ -73,6 +73,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_0, HttpResponseStatus.OK);
         if (path.equals("") || path.equals("/")) {
             response.setHeader(CONTENT_TYPE, BaseTransport.CONTENT_TYPE_PLAIN);
+            response.setHeader(CONNECTION, HttpHeaders.Values.CLOSE);
             response.setContent(ChannelBuffers.copiedBuffer("Welcome to SockJS!\n", CharsetUtil.UTF_8));
             e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         } else if (path.startsWith("/iframe")) {
