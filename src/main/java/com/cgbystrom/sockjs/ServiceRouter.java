@@ -9,7 +9,9 @@ import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
+import static org.jboss.netty.handler.codec.http.HttpHeaders.Values.KEEP_ALIVE;
 
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
@@ -64,6 +66,18 @@ public class ServiceRouter extends SimpleChannelHandler {
         e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
 
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
+        final String connectionClosedMsg = "An existing connection was forcibly closed by the remote host";
+        final Throwable t = e.getCause();
+
+        if (t instanceof IOException && t.getMessage().equalsIgnoreCase(connectionClosedMsg)) {
+            logger.debug("Unexpected close (may be safe to ignore).");
+        } else {
+            super.exceptionCaught(ctx, e);
+        }
+    }
+
     private void handleService(ChannelHandlerContext ctx, MessageEvent e, ServiceMetadata serviceMetadata) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
         request.setUri(request.getUri().replaceFirst(serviceMetadata.url, ""));
@@ -73,20 +87,16 @@ public class ServiceRouter extends SimpleChannelHandler {
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_0, HttpResponseStatus.OK);
         if (path.equals("") || path.equals("/")) {
             response.setHeader(CONTENT_TYPE, BaseTransport.CONTENT_TYPE_PLAIN);
-            response.setHeader(CONNECTION, HttpHeaders.Values.CLOSE);
             response.setContent(ChannelBuffers.copiedBuffer("Welcome to SockJS!\n", CharsetUtil.UTF_8));
-            e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            writeResponse(e.getChannel(), request, response);
         } else if (path.startsWith("/iframe")) {
             iframe.handle(request, response);
-            e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            writeResponse(e.getChannel(), request, response);
         } else if (path.startsWith("/info")) {
             response.setHeader(CONTENT_TYPE, "application/json; charset=UTF-8");
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
-            response.setHeader(CONNECTION, "close");
-            ChannelBuffer content = getInfo(serviceMetadata.isWebSocketEnabled);
-            response.setHeader(CONTENT_LENGTH, content.readableBytes());
-            response.setContent(content);
-            e.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+            response.setContent(getInfo(serviceMetadata.isWebSocketEnabled));
+            writeResponse(e.getChannel(), request, response);
         } else if (path.startsWith("/websocket")) {
             // Raw web socket
             ctx.getPipeline().addLast("sockjs-websocket", new RawWebSocketTransport(path));
@@ -169,6 +179,21 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
 
         return s;
+    }
+
+    /** Handle conditional connection close depending on keep-alive */
+    private void writeResponse(Channel channel, HttpRequest request, HttpResponse response) {
+        response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
+
+        boolean hasKeepAliveHeader = KEEP_ALIVE.equalsIgnoreCase(request.getHeader(CONNECTION));
+        if (!request.getProtocolVersion().isKeepAliveDefault() && hasKeepAliveHeader) {
+            response.setHeader(CONNECTION, KEEP_ALIVE);
+        }
+
+        ChannelFuture wf = channel.write(response);
+        if (!HttpHeaders.isKeepAlive(request)) {
+            wf.addListener(ChannelFutureListener.CLOSE);
+        }
     }
 
     private ChannelBuffer getInfo(boolean webSocketEnabled) {
