@@ -29,7 +29,6 @@ public class StreamingTransport extends BaseTransport {
     /** Keep track if ending HTTP chunk has been sent */
     private AtomicBoolean lastChunkSent = new AtomicBoolean(false);
 
-
     public StreamingTransport() {
         this.maxResponseSize = 128 * 1024; // 128 KiB
     }
@@ -40,7 +39,7 @@ public class StreamingTransport extends BaseTransport {
 
     @Override
     public void closeRequested(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        if (lastChunkSent.compareAndSet(false, true)) {
+        if (request.getProtocolVersion() == HttpVersion.HTTP_1_1 && lastChunkSent.compareAndSet(false, true)) {
             e.getChannel().write(HttpChunk.LAST_CHUNK).addListener(ChannelFutureListener.CLOSE);
         } else {
             super.closeRequested(ctx, e);
