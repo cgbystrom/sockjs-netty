@@ -286,9 +286,11 @@ public class WebSocketTransport extends SimpleChannelHandler {
         }
 
         // Send the response and close the connection if necessary.
-        ChannelFuture f = ctx.getChannel().write(res);
         if (!isKeepAlive(req) || res.getStatus().getCode() != 200) {
-            f.addListener(ChannelFutureListener.CLOSE);
+            res.setHeader(CONNECTION, Values.CLOSE);
+            ctx.getChannel().write(res).addListener(ChannelFutureListener.CLOSE);
+        } else {
+            ctx.getChannel().write(res);
         }
     }
 
