@@ -39,7 +39,8 @@ public class StreamingTransport extends BaseTransport {
 
     @Override
     public void closeRequested(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        if (request.getProtocolVersion() == HttpVersion.HTTP_1_1 && lastChunkSent.compareAndSet(false, true)) {
+        // request can be null since close can be requested prior to receiving a message.
+        if (request != null && request.getProtocolVersion() == HttpVersion.HTTP_1_1 && lastChunkSent.compareAndSet(false, true)) {
             e.getChannel().write(HttpChunk.LAST_CHUNK).addListener(ChannelFutureListener.CLOSE);
         } else {
             super.closeRequested(ctx, e);
