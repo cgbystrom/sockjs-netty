@@ -55,8 +55,8 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             flush();
         } else if (state == State.OPEN) {
             if (channel != null) {
-                logger.debug("Session " + id + " already have a channel connected. " + channel);
-                throw new LockException(channel);
+                logger.debug("Session " + id + " already have a channel connected.");
+                throw new LockException(e.getChannel());
             }
             serverHasInitiatedClose.set(false);
             setChannel(e.getChannel());
@@ -106,7 +106,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         // FIXME: Stop any heartbeat
         // FIXME: Timer to expire the connection? Should not close session here.
         // FIXME: Notify the sessionCallback? Unless timeout etc, disconnect it?
-        removeChannel(e.getChannel());
+        unsetChannel(e.getChannel());
         super.channelClosed(ctx, e);
     }
 
@@ -119,8 +119,8 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-        boolean shouldSilence = sessionCallback.onError(e.getCause());
-        if (!shouldSilence) {
+        boolean isSilent = sessionCallback.onError(e.getCause());
+        if (!isSilent) {
             super.exceptionCaught(ctx, e);
         }
     }
@@ -129,7 +129,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     public synchronized void send(String message) {
         final SockJsMessage msg = new SockJsMessage(message);
         // Check and see if we can send the message straight away
-        if (channel != null && channel.isWritable() && messageQueue.size() == 0) {
+        if (channel != null && channel.isWritable() && messageQueue.isEmpty()) {
             channel.write(Frame.messageFrame(msg));
         } else {
             messageQueue.addLast(msg);
@@ -147,6 +147,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             logger.debug("Session " + id + " server initiated close, closing...");
             setState(State.CLOSED);
             closeReason = Frame.closeFrame(code, message);
+
             if (channel != null && channel.isWritable()) {
                 channel.write(closeReason);
             }
@@ -155,17 +156,17 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         }
     }
 
-    public void setChannel(Channel channel) {
-        this.channel = channel;
-        logger.debug("Session " + id + " channel added");
-    }
-
     public void setState(State state) {
         this.state = state;
         logger.debug("Session " + id + " state changed to " + state);
     }
 
-    private synchronized void removeChannel(Channel channel) {
+    private void setChannel(Channel channel) {
+        this.channel = channel;
+        logger.debug("Session " + id + " channel added");
+    }
+
+    private synchronized void unsetChannel(Channel channel) {
         if (this.channel != channel && this.channel != null) {
             return;
         }
@@ -178,7 +179,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             return;
         }
 
-        if (messageQueue.size() > 0) {
+        if (!messageQueue.isEmpty()) {
             logger.debug("Session " + id + " flushing queue");
             channel.write(Frame.messageFrame(new ArrayList<SockJsMessage>(messageQueue).toArray(new SockJsMessage[messageQueue.size()])));
             messageQueue.clear();
