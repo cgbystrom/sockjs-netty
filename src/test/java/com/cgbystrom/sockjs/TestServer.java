@@ -46,8 +46,14 @@ public class TestServer {
                         Executors.newCachedThreadPool()));
 
         final ServiceRouter router = new ServiceRouter();
-        router.registerService("/echo", new EchoSession(), true, 4096);
+        router.registerService("/echo", new SessionCallbackFactory() {
+            @Override
+            public EchoSession getSession(String id) throws Exception {
+                return new EchoSession();
+            }
+        }, true, 4096);
         router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false, 128 * 1024);
+        router.registerService("/cookie_needed_echo", new EchoSession(), true, 4096).setJsessionid(true);
         router.registerService("/close", new CloseSession(), true, 128 * 1024);
         router.registerService("/amplify", new AmplifySession(), true, 128 * 1024);
         router.registerService("/broadcast", new SessionCallbackFactory() {
