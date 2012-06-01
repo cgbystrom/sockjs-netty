@@ -5,6 +5,7 @@ import org.jboss.netty.handler.codec.http.*;
 
 public class PreflightHandler extends SimpleChannelHandler {
     private String origin = null;
+    private String corsHeaders = null;
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
@@ -14,6 +15,8 @@ public class PreflightHandler extends SimpleChannelHandler {
             String originHeader = request.getHeader("Origin");
             if (originHeader != null)
                 origin = originHeader;
+
+            corsHeaders = request.getHeader("Access-Control-Request-Headers");
 
             System.out.println(request.getMethod().toString() + " " + request.getUri());
             if (request.getMethod().equals(HttpMethod.OPTIONS)) {
@@ -46,6 +49,10 @@ public class PreflightHandler extends SimpleChannelHandler {
             HttpResponse response = (HttpResponse)e.getMessage();
             response.setHeader("Access-Control-Allow-Origin", origin == null || "null".equals(origin) ? "*" : origin);
             response.setHeader("Access-Control-Allow-Credentials", "true");
+
+            if (corsHeaders != null) {
+                response.setHeader("Access-Control-Allow-Headers", corsHeaders);
+            }
         }
         super.writeRequested(ctx, e);
     }
