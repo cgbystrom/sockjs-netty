@@ -145,7 +145,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (transport.equals("/eventsource")) {
             pipeline.addLast("sockjs-eventsource", new EventSourceTransport(serviceMetadata.maxResponseSize));
         } else if (transport.equals("/websocket")) {
-            pipeline.addLast("sockjs-websocket", new WebSocketTransport(path, serviceMetadata.maxResponseSize));
+            pipeline.addLast("sockjs-websocket", new WebSocketTransport(serviceMetadata.url + path, serviceMetadata.maxResponseSize));
             // Websockets should re-create a session every time
             sessionCreation = SessionCreation.FORCE_CREATE;
         } else {
