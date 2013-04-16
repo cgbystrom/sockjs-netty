@@ -227,7 +227,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         sb.append(metadata.isJsessionid());
         sb.append(", ");
         sb.append("\"entropy\": ");
-        sb.append(random.nextInt());
+        sb.append(random.nextInt(Integer.MAX_VALUE) + 1);
         sb.append("}");
         return ChannelBuffers.copiedBuffer(sb.toString(), CharsetUtil.UTF_8);
     }
