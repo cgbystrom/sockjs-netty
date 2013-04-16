@@ -38,6 +38,7 @@ public class BaseTransport extends SimpleChannelHandler {
         response.setContent(buffer);
         response.setHeader(CONTENT_LENGTH, buffer.readableBytes());
         response.setHeader(SET_COOKIE, "JSESSIONID=dummy; path=/"); // FIXME: Don't sprinkle cookies in every request
+        response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Credentials", "true");
 
