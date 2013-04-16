@@ -3,6 +3,9 @@
 An implementation of SockJS for Java using JBoss Netty. It is currently not finished and not production ready.
 However, all transports offered by SockJS have been implemented and the issues remaining are minor.
 
+Currently passes all tests from the [0.3.3 protocol specification](http://sockjs.github.io/sockjs-protocol/sockjs-protocol-0.3.3.html) except for ```test_haproxy```.
+Only users behind HAProxy should be impacted by that though.
+
 ## What is SockJS?
 SockJS is a browser JavaScript library that provides a WebSocket-like object. SockJS gives you a coherent, cross-browser, Javascript API which creates a low latency, full duplex, cross-domain communication channel between the browser and the web server.
 
