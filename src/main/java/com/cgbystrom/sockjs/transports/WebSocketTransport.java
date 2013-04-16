@@ -31,26 +31,14 @@ public class WebSocketTransport extends SimpleChannelHandler {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(WebSocketTransport.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private static final CookieDecoder COOKIE_DECODER = new CookieDecoder();
-    private static final CookieEncoder COOKIE_ENCODER = new CookieEncoder(true);
-    private static final String JSESSIONID = "JSESSIONID";
-    private static final String DEFAULT_COOKIE = "JSESSIONID=dummy; path=/";
-    private static final ChannelBuffer NEW_LINE = ChannelBuffers.copiedBuffer("\r\n", CharsetUtil.UTF_8);
-    private static final ChannelBuffer FRAME_BEGIN = ChannelBuffers.copiedBuffer("data: ", CharsetUtil.UTF_8);
-    private static final ChannelBuffer FRAME_DELIMITER = ChannelBuffers.copiedBuffer("\r\n\0", CharsetUtil.UTF_8);
-    private static final ChannelBuffer FRAME_END = ChannelBuffers.copiedBuffer("\r\n\r\n", CharsetUtil.UTF_8);
-
-    private String cookie = DEFAULT_COOKIE;
-    //private String jsonpCallback;
-    private ChannelBuffer header;
-    private AtomicBoolean headerSent = new AtomicBoolean(false);
-
     /**
      *  Max size of response content sent before closing the connection.
      *  Since browsers buffer chunked/streamed content in-memory the connection must be closed
      *  at regular intervals. Call it "garbage collection" if you will.
      */
     private final int maxResponseSize;
+
+    private boolean isSsl;
 
     /** Track size of content chunks sent to the browser. */
     private AtomicInteger numBytesSent = new AtomicInteger(0);
@@ -59,14 +47,10 @@ public class WebSocketTransport extends SimpleChannelHandler {
     private WebSocketServerHandshaker handshaker;
     private final String path;
 
-    public WebSocketTransport(String path) {
+    public WebSocketTransport(String path, ServiceRouter.ServiceMetadata metadata) {
         this.path = path;
-        this.maxResponseSize = 128 * 1024; // 128 KiB
-    }
-
-    public WebSocketTransport(String path, int maxResponseSize) {
-        this.path = path;
-        this.maxResponseSize = maxResponseSize;
+        this.maxResponseSize = metadata.maxResponseSize;
+        this.isSsl = metadata.isSsl;
     }
 
     @Override
@@ -81,70 +65,19 @@ public class WebSocketTransport extends SimpleChannelHandler {
 
     @Override
     public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-
         super.channelDisconnected(ctx, e);
     }
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-        //self.preflight()
-        //self.handle_session_cookie()
         Object msg = e.getMessage();
         if (msg instanceof HttpRequest) {
             handleHttpRequest(ctx, e.getChannel(), (HttpRequest) msg);
         } else if (msg instanceof WebSocketFrame) {
             handleWebSocketFrame(ctx, e.getChannel(), (WebSocketFrame) msg);
         } else {
-            System.out.println("UNKNOWN FRAME TYPE");
+            throw new IOException("Unknown frame type: " + msg.getClass().getSimpleName());
         }
-
-
-        /*HttpRequest request = (HttpRequest) e.getMessage();
-
-        // FIXME: Check if cookies are enabled in the server
-        cookie = DEFAULT_COOKIE;
-        String cookieHeader = request.getHeader(HttpHeaders.Names.COOKIE);
-        if (cookieHeader != null) {
-            Set<Cookie> cookies = COOKIE_DECODER.decode(cookieHeader);
-            for (Cookie c : cookies) {
-                if (c.getName().equals(JSESSIONID)) {
-                    c.setPath("/");
-                    CookieEncoder cookieEncoder = new CookieEncoder(true);
-                    cookieEncoder.addCookie(c);
-                    cookie = cookieEncoder.encode();
-                    System.out.println("COOKIE SET TO " + cookie);
-                }
-            }
-        }
-
-        /*QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
-
-        final List<String> c = qsd.getParameters().get("c");
-        if (c == null) {
-            NotFoundHandler.respond(e.getChannel(), HttpResponseStatus.INTERNAL_SERVER_ERROR, "\"callback\" parameter required.");
-            return;
-        }
-        final String callback = c.get(0);
-        header = ChannelBuffers.wrappedBuffer(HEADER_PART1, ChannelBuffers.copiedBuffer(callback, CharsetUtil.UTF_8), HEADER_PART2);
-        e.getChannel().write(header);*/
-        
-        
-
-
-        // Only when we have received the HTTP request is the sockjs connection open
-        // if it's a returning request for an existing session do nothing in terms of connection opening
-        // deliver any outstanding messages
-        // create a session if new
-
-        // We received a polling XHR request, keep it alive and notify upstream about session, connected/disconnected
-
-        //String sessionId = "BOGUS_FIX_123";
-        
-        // Since we have silenced the usual channel state events for open and connected for the socket,
-        // we must notify handlers downstream to now consider this connection connected.
-        // We are responsible for manually dispatching this event upstream
-
-        // ctx.sendUpstream(new UpstreamChannelStateEvent(e.getChannel(), ChannelState.CONNECTED, Boolean.TRUE));
     }
 
     @Override
@@ -204,11 +137,9 @@ public class WebSocketTransport extends SimpleChannelHandler {
             return;
         }
 
-
         // Compatibility hack for Firefox 6.x
         String connectionHeader = req.getHeader(CONNECTION);
         if (connectionHeader != null && connectionHeader.equals("keep-alive, Upgrade")) {
-            System.out.println("FIXING IT FOR FIREFOX");
             req.setHeader(CONNECTION, UPGRADE);
         }
 
@@ -279,12 +210,6 @@ public class WebSocketTransport extends SimpleChannelHandler {
     }
 
     private void sendHttpResponse(ChannelHandlerContext ctx, HttpRequest req, HttpResponse res) {
-        // Generate an error page if response status code is not OK (200).
-        if (res.getStatus().getCode() != 200) {
-            //res.setContent(ChannelBuffers.copiedBuffer(res.getStatus().toString(), CharsetUtil.UTF_8));
-            //setContentLength(res, res.getContent().readableBytes());
-        }
-
         // Send the response and close the connection if necessary.
         if (!isKeepAlive(req) || res.getStatus().getCode() != 200) {
             res.setHeader(CONNECTION, Values.CLOSE);
@@ -295,7 +220,10 @@ public class WebSocketTransport extends SimpleChannelHandler {
     }
 
     private String getWebSocketLocation(HttpRequest req) {
-        // FIXME: Handle SSL and non-standard HTTP port?
-        return "ws://" + req.getHeader(HttpHeaders.Names.HOST) + path;
+        if (isSsl) {
+            return "wss://" + req.getHeader(HttpHeaders.Names.HOST) + path;
+        } else {
+            return "ws://" + req.getHeader(HttpHeaders.Names.HOST) + path;
+        }
     }
 }

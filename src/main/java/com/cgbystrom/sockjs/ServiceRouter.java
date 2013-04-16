@@ -33,17 +33,20 @@ public class ServiceRouter extends SimpleChannelHandler {
         this.iframe = new IframePage(CLIENT_URL);
     }
 
-    public synchronized ServiceMetadata registerService(String baseUrl, final SessionCallback service, boolean isWebSocketEnabled, int maxResponseSize) {
+    public synchronized ServiceMetadata registerService(String baseUrl, final SessionCallback service,
+                boolean isWebSocketEnabled, int maxResponseSize, boolean isSsl) {
         return registerService(baseUrl, new SessionCallbackFactory() {
             @Override
             public SessionCallback getSession(String id) throws Exception {
                 return service;
             }
-        }, isWebSocketEnabled, maxResponseSize);
+        }, isWebSocketEnabled, maxResponseSize, isSsl);
     }
 
-    public synchronized ServiceMetadata registerService(String baseUrl, SessionCallbackFactory sessionFactory, boolean isWebSocketEnabled, int maxResponseSize) {
-        ServiceMetadata sm = new ServiceMetadata(baseUrl, sessionFactory, new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled, maxResponseSize);
+    public synchronized ServiceMetadata registerService(String baseUrl, SessionCallbackFactory sessionFactory,
+                boolean isWebSocketEnabled, int maxResponseSize, boolean isSsl) {
+        ServiceMetadata sm = new ServiceMetadata(baseUrl, sessionFactory,
+                new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled, maxResponseSize, isSsl);
         services.put(baseUrl, sm);
         return sm;
     }
@@ -145,7 +148,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (transport.equals("/eventsource")) {
             pipeline.addLast("sockjs-eventsource", new EventSourceTransport(serviceMetadata.maxResponseSize));
         } else if (transport.equals("/websocket")) {
-            pipeline.addLast("sockjs-websocket", new WebSocketTransport(serviceMetadata.url + path, serviceMetadata.maxResponseSize));
+            pipeline.addLast("sockjs-websocket", new WebSocketTransport(serviceMetadata.url + path, serviceMetadata));
             // Websockets should re-create a session every time
             sessionCreation = SessionCreation.FORCE_CREATE;
         } else {
@@ -230,12 +233,14 @@ public class ServiceRouter extends SimpleChannelHandler {
     }
 
     public static class ServiceMetadata {
-        private ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String, SessionHandler> sessions, boolean isWebSocketEnabled, int maxResponseSize) {
+        private ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String,
+                SessionHandler> sessions, boolean isWebSocketEnabled, int maxResponseSize, boolean isSsl) {
             this.url = url;
             this.factory = factory;
             this.sessions = sessions;
             this.isWebSocketEnabled = isWebSocketEnabled;
             this.maxResponseSize = maxResponseSize;
+            this.isSsl = isSsl;
         }
 
         // FIXME: Make private.
@@ -245,6 +250,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         public boolean isWebSocketEnabled = true;
         public int maxResponseSize;
         public boolean jsessionid = false;
+        public boolean isSsl = false;
 
         public String getUrl() {
             return url;

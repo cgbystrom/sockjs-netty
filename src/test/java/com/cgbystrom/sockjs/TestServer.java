@@ -51,17 +51,17 @@ public class TestServer {
             public EchoSession getSession(String id) throws Exception {
                 return new EchoSession();
             }
-        }, true, 4096);
-        router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false, 128 * 1024);
-        router.registerService("/cookie_needed_echo", new EchoSession(), true, 4096).setJsessionid(true);
-        router.registerService("/close", new CloseSession(), true, 128 * 1024);
-        router.registerService("/amplify", new AmplifySession(), true, 128 * 1024);
+        }, true, 4096, false);
+        router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false, 128 * 1024, false);
+        router.registerService("/cookie_needed_echo", new EchoSession(), true, 4096, false).setJsessionid(true);
+        router.registerService("/close", new CloseSession(), true, 128 * 1024, false);
+        router.registerService("/amplify", new AmplifySession(), true, 128 * 1024, false);
         router.registerService("/broadcast", new SessionCallbackFactory() {
             @Override
             public BroadcastSession getSession(String id) throws Exception {
                 return new BroadcastSession();
             }
-        }, true, 128 * 1024);
+        }, true, 128 * 1024, false);
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             @Override
