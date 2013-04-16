@@ -18,7 +18,6 @@ public class PreflightHandler extends SimpleChannelHandler {
 
             corsHeaders = request.getHeader("Access-Control-Request-Headers");
 
-            System.out.println(request.getMethod().toString() + " " + request.getUri());
             if (request.getMethod().equals(HttpMethod.OPTIONS)) {
                 HttpResponse response = new DefaultHttpResponse(request.getProtocolVersion(), HttpResponseStatus.NO_CONTENT);
                 response.setHeader(HttpHeaders.Names.CONTENT_TYPE, "text/plain; charset=UTF-8");
