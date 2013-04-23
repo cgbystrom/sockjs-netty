@@ -34,19 +34,19 @@ public class ServiceRouter extends SimpleChannelHandler {
     }
 
     public synchronized ServiceMetadata registerService(String baseUrl, final SessionCallback service,
-                boolean isWebSocketEnabled, int maxResponseSize, boolean isSsl) {
+                boolean isWebSocketEnabled, int maxResponseSize) {
         return registerService(baseUrl, new SessionCallbackFactory() {
             @Override
             public SessionCallback getSession(String id) throws Exception {
                 return service;
             }
-        }, isWebSocketEnabled, maxResponseSize, isSsl);
+        }, isWebSocketEnabled, maxResponseSize);
     }
 
     public synchronized ServiceMetadata registerService(String baseUrl, SessionCallbackFactory sessionFactory,
-                boolean isWebSocketEnabled, int maxResponseSize, boolean isSsl) {
+                boolean isWebSocketEnabled, int maxResponseSize) {
         ServiceMetadata sm = new ServiceMetadata(baseUrl, sessionFactory,
-                new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled, maxResponseSize, isSsl);
+                new ConcurrentHashMap<String, SessionHandler>(), isWebSocketEnabled, maxResponseSize);
         services.put(baseUrl, sm);
         return sm;
     }
@@ -234,13 +234,12 @@ public class ServiceRouter extends SimpleChannelHandler {
 
     public static class ServiceMetadata {
         private ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String,
-                SessionHandler> sessions, boolean isWebSocketEnabled, int maxResponseSize, boolean isSsl) {
+                SessionHandler> sessions, boolean isWebSocketEnabled, int maxResponseSize) {
             this.url = url;
             this.factory = factory;
             this.sessions = sessions;
             this.isWebSocketEnabled = isWebSocketEnabled;
             this.maxResponseSize = maxResponseSize;
-            this.isSsl = isSsl;
         }
 
         // FIXME: Make private.
@@ -250,7 +249,6 @@ public class ServiceRouter extends SimpleChannelHandler {
         public boolean isWebSocketEnabled = true;
         public int maxResponseSize;
         public boolean jsessionid = false;
-        public boolean isSsl = false;
 
         public String getUrl() {
             return url;

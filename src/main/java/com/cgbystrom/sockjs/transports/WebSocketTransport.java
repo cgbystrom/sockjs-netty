@@ -14,16 +14,14 @@ import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferInputStream;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.codec.http.websocketx.*;
+import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.util.CharsetUtil;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 // FIMXE: Mark as sharable?
@@ -38,8 +36,6 @@ public class WebSocketTransport extends SimpleChannelHandler {
      */
     private final int maxResponseSize;
 
-    private boolean isSsl;
-
     /** Track size of content chunks sent to the browser. */
     private AtomicInteger numBytesSent = new AtomicInteger(0);
     // FIXME: Do we really need to be atomic? Are not each pipeline handler assigned to an I/O thread, such as this class?
@@ -50,7 +46,6 @@ public class WebSocketTransport extends SimpleChannelHandler {
     public WebSocketTransport(String path, ServiceRouter.ServiceMetadata metadata) {
         this.path = path;
         this.maxResponseSize = metadata.maxResponseSize;
-        this.isSsl = metadata.isSsl;
     }
 
     @Override
@@ -150,7 +145,8 @@ public class WebSocketTransport extends SimpleChannelHandler {
         }
 
         // Handshake
-        WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(getWebSocketLocation(req), "chat, superchat", false);
+        String wsLocation = getWebSocketLocation(channel.getPipeline(), req);
+        WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(wsLocation, null, false);
 
         handshaker = wsFactory.newHandshaker(req);
         if (handshaker == null) {
@@ -219,7 +215,8 @@ public class WebSocketTransport extends SimpleChannelHandler {
         }
     }
 
-    private String getWebSocketLocation(HttpRequest req) {
+    private String getWebSocketLocation(ChannelPipeline pipeline, HttpRequest req) {
+        boolean isSsl = pipeline.get(SslHandler.class) != null;
         if (isSsl) {
             return "wss://" + req.getHeader(HttpHeaders.Names.HOST) + path;
         } else {
