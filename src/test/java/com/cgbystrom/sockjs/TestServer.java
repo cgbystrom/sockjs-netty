@@ -5,6 +5,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.ConsoleAppender;
+import com.cgbystrom.sockjs.test.BroadcastSession;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
