@@ -20,7 +20,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ServiceRouter extends SimpleChannelHandler {
-    public static final String CLIENT_URL = "http://cdn.sockjs.org/sockjs-0.2.js";
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServiceRouter.class);
     private static final Pattern SERVER_SESSION = Pattern.compile("^/([^/.]+)/([^/.]+)/");
     private static final Random random = new Random();
@@ -29,8 +28,13 @@ public class ServiceRouter extends SimpleChannelHandler {
     private final Map<String, ServiceMetadata> services = new LinkedHashMap<String, ServiceMetadata>();
     private IframePage iframe;
 
-    public ServiceRouter() {
-        this.iframe = new IframePage(CLIENT_URL);
+    /**
+     *
+     * @param clientUrl URL to SockJS JavaScript client. Needed by the iframe to properly load.
+     *                  (Hint: SockJS has a CDN, http://cdn.sockjs.org/)
+     */
+    public ServiceRouter(String clientUrl) {
+        this.iframe = new IframePage(clientUrl);
     }
 
     public synchronized ServiceMetadata registerService(String baseUrl, final SessionCallback service,

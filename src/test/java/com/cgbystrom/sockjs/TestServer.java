@@ -46,7 +46,7 @@ public class TestServer {
                         Executors.newCachedThreadPool(),
                         Executors.newCachedThreadPool()));
 
-        final ServiceRouter router = new ServiceRouter();
+        final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
         router.registerService("/echo", new SessionCallbackFactory() {
             @Override
             public EchoSession getSession(String id) throws Exception {
