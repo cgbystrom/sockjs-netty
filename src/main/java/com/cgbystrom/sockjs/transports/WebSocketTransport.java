@@ -22,30 +22,19 @@ import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 // FIMXE: Mark as sharable?
 public class WebSocketTransport extends SimpleChannelHandler {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(WebSocketTransport.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    /**
-     *  Max size of response content sent before closing the connection.
-     *  Since browsers buffer chunked/streamed content in-memory the connection must be closed
-     *  at regular intervals. Call it "garbage collection" if you will.
-     */
-    private final int maxResponseSize;
-
-    /** Track size of content chunks sent to the browser. */
-    private AtomicInteger numBytesSent = new AtomicInteger(0);
-    // FIXME: Do we really need to be atomic? Are not each pipeline handler assigned to an I/O thread, such as this class?
-
     private WebSocketServerHandshaker handshaker;
     private final String path;
+    private TransportMetrics transportMetrics;
 
-    public WebSocketTransport(String path, ServiceRouter.ServiceMetadata metadata) {
+    public WebSocketTransport(String path, ServiceMetadata metadata) {
         this.path = path;
-        this.maxResponseSize = metadata.maxResponseSize;
+        transportMetrics = metadata.getMetrics().getWebSocket();
     }
 
     @Override
@@ -60,6 +49,9 @@ public class WebSocketTransport extends SimpleChannelHandler {
 
     @Override
     public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+        // Metrics for connect is handled by ServiceRouter since we are not attached
+        // to pipeline when channelConnected fires.
+        transportMetrics.connectionsOpen.dec();
         super.channelDisconnected(ctx, e);
     }
 
@@ -69,7 +61,10 @@ public class WebSocketTransport extends SimpleChannelHandler {
         if (msg instanceof HttpRequest) {
             handleHttpRequest(ctx, e.getChannel(), (HttpRequest) msg);
         } else if (msg instanceof WebSocketFrame) {
-            handleWebSocketFrame(ctx, e.getChannel(), (WebSocketFrame) msg);
+            WebSocketFrame wsf = (WebSocketFrame) msg;
+            transportMetrics.messagesReceived.mark();
+            transportMetrics.messagesReceivedSize.update(wsf.getBinaryData().readableBytes());
+            handleWebSocketFrame(ctx, e.getChannel(), wsf);
         } else {
             throw new IOException("Unknown frame type: " + msg.getClass().getSimpleName());
         }
@@ -90,7 +85,11 @@ public class WebSocketTransport extends SimpleChannelHandler {
                     }
                 });
             }
-            TextWebSocketFrame message = new TextWebSocketFrame(Frame.encode((Frame) e.getMessage(), false));
+
+            ChannelBuffer frame = Frame.encode((Frame) e.getMessage(), false);
+            transportMetrics.messagesSent.mark();
+            transportMetrics.messagesSentSize.update(frame.readableBytes());
+            TextWebSocketFrame message = new TextWebSocketFrame(frame);
             super.writeRequested(ctx, new DownstreamMessageEvent(e.getChannel(), e.getFuture(), message, e.getRemoteAddress()));
         } else {
             super.writeRequested(ctx, e);

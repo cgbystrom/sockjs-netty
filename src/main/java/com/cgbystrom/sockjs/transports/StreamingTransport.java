@@ -29,11 +29,12 @@ public class StreamingTransport extends BaseTransport {
     /** Keep track if ending HTTP chunk has been sent */
     private AtomicBoolean lastChunkSent = new AtomicBoolean(false);
 
-    public StreamingTransport() {
-        this.maxResponseSize = 128 * 1024; // 128 KiB
+    public StreamingTransport(TransportMetrics transportMetrics) {
+        this(transportMetrics, 128 * 1024); // 128 KiB
     }
 
-    public StreamingTransport(int maxResponseSize) {
+    public StreamingTransport(TransportMetrics transportMetrics, int maxResponseSize) {
+        super(transportMetrics);
         this.maxResponseSize = maxResponseSize;
     }
 
@@ -48,6 +49,9 @@ public class StreamingTransport extends BaseTransport {
     }
 
     protected void logResponseSize(Channel channel, ChannelBuffer content) {
+        transportMetrics.messagesSent.mark();
+        transportMetrics.messagesSentSize.update(content.readableBytes());
+
         numBytesSent.addAndGet(content.readableBytes());
 
         if (numBytesSent.get() >= maxResponseSize) {

@@ -1,6 +1,7 @@
 package com.cgbystrom.sockjs.transports;
 
 import com.cgbystrom.sockjs.Frame;
+import com.cgbystrom.sockjs.ServiceMetadata;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
@@ -16,8 +17,8 @@ public class EventSourceTransport extends StreamingTransport {
     private static final ChannelBuffer FRAME_END = ChannelBuffers.copiedBuffer("\r\n\r\n", CharsetUtil.UTF_8);
     private static final String CONTENT_TYPE_EVENT_STREAM = "text/event-stream; charset=UTF-8";
 
-    public EventSourceTransport(int maxResponseSize) {
-        super(maxResponseSize);
+    public EventSourceTransport(ServiceMetadata.Metrics metrics, int maxResponseSize) {
+        super(metrics.getEventSource(), maxResponseSize);
     }
 
     @Override

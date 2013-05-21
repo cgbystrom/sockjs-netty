@@ -1,6 +1,7 @@
 package com.cgbystrom.sockjs.transports;
 
 import com.cgbystrom.sockjs.Frame;
+import com.cgbystrom.sockjs.ServiceMetadata;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
@@ -10,8 +11,8 @@ import org.jboss.netty.logging.InternalLoggerFactory;
 public class XhrStreamingTransport extends StreamingTransport {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(XhrStreamingTransport.class);
 
-    public XhrStreamingTransport(int maxResponseSize) {
-        super(maxResponseSize);
+    public XhrStreamingTransport(ServiceMetadata.Metrics metrics, int maxResponseSize) {
+        super(metrics.getXhrStreaming(), maxResponseSize);
     }
 
     @Override

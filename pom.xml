@@ -50,6 +50,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>3.0.0-BETA2</version>
+        </dependency>
+        <dependency>
             <groupId>org.codehaus.jackson</groupId>
             <artifactId>jackson-core-asl</artifactId>
             <version>1.9.12</version>
@@ -59,6 +64,7 @@
             <artifactId>jackson-mapper-asl</artifactId>
             <version>1.9.12</version>
         </dependency>
+
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
@@ -98,19 +104,6 @@
             </plugin>
         </plugins>
     </build>
-    
-    <distributionManagement>
-        <snapshotRepository>
-            <id>esn.nexus.snapshots.dist</id>
-            <name>ESN Internal Distribution Nexus</name>
-            <url>http://nexus.services.esn/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>esn.nexus.releases.dist</id>
-            <name>ESN Internal Distribution Nexus</name>
-            <url>http://nexus.services.esn/content/repositories/releases</url>
-        </repository>
-    </distributionManagement>
 
     <repositories>
         <repository>

@@ -12,6 +12,10 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Values.*;
 public class XhrPollingTransport extends BaseTransport {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(XhrPollingTransport.class);
 
+    public XhrPollingTransport(ServiceMetadata.Metrics metrics) {
+        super(metrics.getXhrPolling());
+    }
+
     @Override
     public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
         if (e.getMessage() instanceof Frame) {

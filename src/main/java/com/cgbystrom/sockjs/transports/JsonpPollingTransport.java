@@ -1,6 +1,7 @@
 package com.cgbystrom.sockjs.transports;
 
 import com.cgbystrom.sockjs.Frame;
+import com.cgbystrom.sockjs.ServiceMetadata;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
@@ -15,6 +16,10 @@ public class JsonpPollingTransport extends BaseTransport {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(JsonpPollingTransport.class);
     
     private String jsonpCallback;
+
+    public JsonpPollingTransport(ServiceMetadata.Metrics metrics) {
+        super(metrics.getJsonp());
+    }
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
@@ -49,6 +54,8 @@ public class JsonpPollingTransport extends BaseTransport {
             response.setContent(content);
             response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, content.readableBytes());
             ctx.sendDownstream(new DownstreamMessageEvent(e.getChannel(), e.getFuture(), response, e.getRemoteAddress()));
+            transportMetrics.messagesSent.mark();
+            transportMetrics.messagesSentSize.update(content.readableBytes());
         } else {
             super.writeRequested(ctx, e);
         }

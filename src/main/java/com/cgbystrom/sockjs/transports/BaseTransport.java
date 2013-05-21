@@ -25,9 +25,14 @@ public class BaseTransport extends SimpleChannelHandler {
     private static final String DEFAULT_COOKIE = "JSESSIONID=dummy; path=/";
 
     protected String cookie = DEFAULT_COOKIE;
+    protected TransportMetrics transportMetrics;
 
     /** Save a reference to the initating HTTP request */
     protected HttpRequest request;
+
+    public BaseTransport(TransportMetrics transportMetrics) {
+        this.transportMetrics = transportMetrics;
+    }
 
     public static void respond(Channel channel, HttpResponseStatus status, String message) throws Exception {
         // TODO: Why aren't response data defined in SockJS for error messages?
@@ -54,6 +59,13 @@ public class BaseTransport extends SimpleChannelHandler {
     @Override
     public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         // Overridden method to prevent propagation of channel state event upstream.
+    }
+
+    @Override
+    public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+        // Metrics for connect is handled by ServiceRouter.
+        transportMetrics.connectionsOpen.dec();
+        super.channelDisconnected(ctx, e);
     }
 
     @Override

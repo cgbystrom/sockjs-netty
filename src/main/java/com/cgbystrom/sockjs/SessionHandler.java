@@ -1,12 +1,16 @@
 package com.cgbystrom.sockjs;
 
+import com.cgbystrom.sockjs.transports.TransportMetrics;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
+import org.jboss.netty.util.Timeout;
+import org.jboss.netty.util.TimerTask;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -26,10 +30,16 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     private final LinkedList<SockJsMessage> messageQueue = new LinkedList<SockJsMessage>();
     private final AtomicBoolean serverHasInitiatedClose = new AtomicBoolean(false);
     private Frame.CloseFrame closeReason;
+    private ServiceMetadata serviceMetadata;
+    private TransportMetrics transportMetrics;
+    private Timeout sessionTimeout;
 
-    protected SessionHandler(String id, SessionCallback sessionCallback) {
+    protected SessionHandler(String id, SessionCallback sessionCallback, ServiceMetadata sm,
+                             TransportMetrics tm) {
         this.id = id;
         this.sessionCallback = sessionCallback;
+        this.serviceMetadata = sm;
+        this.transportMetrics = tm;
         if (logger.isDebugEnabled())
             logger.debug("Session " + id + " created");
     }
@@ -157,12 +167,27 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     }
 
     public void setState(State state) {
+        switch (state) {
+            case OPEN:
+                transportMetrics.sessionsOpen.inc();
+                transportMetrics.sessionsOpened.mark();
+                break;
+
+            case CLOSED:
+            case INTERRUPTED:
+                if (state == State.OPEN) {
+                    transportMetrics.sessionsOpen.dec();
+                }
+
+        }
         this.state = state;
+
         logger.debug("Session " + id + " state changed to " + state);
     }
 
     private void setChannel(Channel channel) {
         this.channel = channel;
+        stopSessionTimeout();
         logger.debug("Session " + id + " channel added");
     }
 
@@ -171,6 +196,8 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             return;
         }
         this.channel = null;
+
+        startSessionTimeout();
         logger.debug("Session " + id + " channel removed. " + channel);
     }
 
@@ -183,6 +210,25 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
             logger.debug("Session " + id + " flushing queue");
             channel.write(Frame.messageFrame(new ArrayList<SockJsMessage>(messageQueue).toArray(new SockJsMessage[messageQueue.size()])));
             messageQueue.clear();
+        }
+    }
+
+    private void startSessionTimeout() {
+        sessionTimeout = serviceMetadata.getTimer().newTimeout(new TimerTask() {
+            @Override
+            public void run(Timeout timeout) throws Exception {
+                if (timeout.isCancelled()) {
+                    return;
+                }
+                logger.debug("Session " + id + " timed out. Destroying...");
+                serviceMetadata.destroySession(id);
+            }
+        }, serviceMetadata.getSessionTimeout(), TimeUnit.SECONDS);
+    }
+
+    private void stopSessionTimeout() {
+        if (sessionTimeout != null) {
+            sessionTimeout.cancel();
         }
     }
 

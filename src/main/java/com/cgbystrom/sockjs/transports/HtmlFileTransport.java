@@ -1,6 +1,7 @@
 package com.cgbystrom.sockjs.transports;
 
 import com.cgbystrom.sockjs.Frame;
+import com.cgbystrom.sockjs.ServiceMetadata;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
@@ -33,8 +34,8 @@ public class HtmlFileTransport extends StreamingTransport {
 
     private ChannelBuffer header;
 
-    public HtmlFileTransport(int maxResponseSize) {
-        super(maxResponseSize);
+    public HtmlFileTransport(ServiceMetadata.Metrics metrics, int maxResponseSize) {
+        super(metrics.getHtmlFile(), maxResponseSize);
     }
 
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {

@@ -1,5 +1,6 @@
 package com.cgbystrom.sockjs.transports;
 
+import com.cgbystrom.sockjs.ServiceMetadata;
 import com.cgbystrom.sockjs.SessionHandler;
 import com.cgbystrom.sockjs.SockJsMessage;
 import org.codehaus.jackson.JsonParseException;
@@ -19,9 +20,11 @@ public class XhrSendTransport extends SimpleChannelUpstreamHandler {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private boolean isJsonpEnabled = false;
+    private TransportMetrics transportMetrics;
 
-    public XhrSendTransport(boolean isJsonpEnabled) {
+    public XhrSendTransport(ServiceMetadata.Metrics metrics, boolean isJsonpEnabled) {
         this.isJsonpEnabled = isJsonpEnabled;
+        this.transportMetrics = metrics.getXhrSend();
     }
 
     @Override
@@ -32,11 +35,14 @@ public class XhrSendTransport extends SimpleChannelUpstreamHandler {
     @Override
     public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         // Overridden method to prevent propagation of channel state event upstream.
+        transportMetrics.connectionsOpen.inc();
+        transportMetrics.connectionsOpened.mark();
     }
 
     @Override
     public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         // Overridden method to prevent propagation of channel state event upstream.
+        transportMetrics.connectionsOpen.dec();
     }
 
     @Override
@@ -52,6 +58,9 @@ public class XhrSendTransport extends SimpleChannelUpstreamHandler {
             BaseTransport.respond(e.getChannel(), INTERNAL_SERVER_ERROR, "Payload expected.");
             return;
         }
+
+        transportMetrics.messagesReceived.mark();
+        transportMetrics.messagesReceivedSize.update(request.getContent().readableBytes());
 
         //logger.debug("Received {}", request.getContent().toString(CharsetUtil.UTF_8));
 
