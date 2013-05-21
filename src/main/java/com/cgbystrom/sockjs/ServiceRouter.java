@@ -9,6 +9,7 @@ import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
+import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timer;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
@@ -18,7 +19,6 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +31,7 @@ public class ServiceRouter extends SimpleChannelHandler {
     private final Map<String, ServiceMetadata> services = new LinkedHashMap<String, ServiceMetadata>();
     private IframePage iframe;
     private MetricRegistry metricRegistry = new MetricRegistry();
+    private Timer timer = new HashedWheelTimer();
 
     /**
      *
@@ -41,28 +42,22 @@ public class ServiceRouter extends SimpleChannelHandler {
         this.iframe = new IframePage(clientUrl);
     }
 
-    public synchronized ServiceMetadata registerService(String baseUrl, final SessionCallback service,
-                boolean isWebSocketEnabled, int maxResponseSize, Timer timer) {
-        return registerService(baseUrl, new SessionCallbackFactory() {
-            @Override
-            public SessionCallback getSession(String id) throws Exception {
-                return service;
-            }
-        }, isWebSocketEnabled, maxResponseSize, timer);
+    public synchronized ServiceMetadata registerService(ServiceMetadata serviceMetadata) {
+        services.put(serviceMetadata.getUrl(), serviceMetadata);
+
+        if (serviceMetadata.getMetricRegistry() == null) {
+            serviceMetadata.setMetricRegistry(metricRegistry);
+        }
+
+        if (serviceMetadata.getTimer() == null) {
+            serviceMetadata.setTimer(timer);
+        }
+
+        return serviceMetadata;
     }
 
-    public synchronized ServiceMetadata registerService(String baseUrl, SessionCallbackFactory sessionFactory,
-                boolean isWebSocketEnabled, int maxResponseSize, Timer timer) {
-        ServiceMetadata sm = new ServiceMetadata(timer, metricRegistry);
-        sm.setUrl(baseUrl);
-        sm.setFactory(sessionFactory);
-        sm.setSessions(new ConcurrentHashMap<String, SessionHandler>());
-        sm.setWebSocketEnabled(isWebSocketEnabled);
-        sm.setMaxResponseSize(maxResponseSize);
-
-        services.put(baseUrl, sm);
-
-        return sm;
+    public MetricRegistry getMetricRegistry() {
+        return metricRegistry;
     }
 
     public void setMetricRegistry(MetricRegistry metricRegistry) {
@@ -230,7 +225,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         sb.append(", ");
         sb.append("\"origins\": [\"*:*\"], ");
         sb.append("\"cookie_needed\": ");
-        sb.append(metadata.isJsessionid());
+        sb.append(metadata.isCookieNeeded());
         sb.append(", ");
         sb.append("\"entropy\": ");
         sb.append(random.nextInt(Integer.MAX_VALUE) + 1);

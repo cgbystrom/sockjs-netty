@@ -11,56 +11,33 @@ import static com.cgbystrom.sockjs.SessionHandler.NotFoundException;
 public class ServiceMetadata {
     private String url;
     private SessionCallbackFactory factory;
-    private ConcurrentHashMap<String, SessionHandler> sessions;
+    private ConcurrentHashMap<String, SessionHandler> sessions = new ConcurrentHashMap<String, SessionHandler>();
     private boolean isWebSocketEnabled = true;
-    private int maxResponseSize;
-    private boolean jsessionid = false;
+    private int maxResponseSize = 128 * 1024;
+    private boolean cookieNeeded = false;
     private Timer timer;
     /** Timeout for when to kill sessions that have not received a connection */
     private int sessionTimeout = 5; // seconds
-    private int heartbeatInterval = 30; // seconds
+    private int heartbeatInterval = 25; // seconds
+    private MetricRegistry metricRegistry;
     private Metrics metrics;
 
-    /*public ServiceMetadata(String url, SessionCallbackFactory factory, ConcurrentHashMap<String,
-            SessionHandler> sessions, boolean isWebSocketEnabled, int maxResponseSize) {
+    public ServiceMetadata(String url, SessionCallbackFactory factory) {
         this.url = url;
         this.factory = factory;
-        this.sessions = sessions;
-        this.isWebSocketEnabled = isWebSocketEnabled;
-        this.maxResponseSize = maxResponseSize;
-    }*/
+    }
 
-    // Package level constructor
-    ServiceMetadata(Timer timer, MetricRegistry metricRegistry) {
-        this.timer = timer;
-        metrics = new Metrics(metricRegistry);
+    public ServiceMetadata(String url, final SessionCallback session) {
+        this(url, new SessionCallbackFactory() {
+            @Override
+            public SessionCallback getSession(String id) throws Exception {
+                return session;
+            }
+        });
     }
 
     public String getUrl() {
         return url;
-    }
-
-    public ServiceMetadata setUrl(String url) {
-        this.url = url;
-        return this;
-    }
-
-    public SessionCallbackFactory getFactory() {
-        return factory;
-    }
-
-    public ServiceMetadata setFactory(SessionCallbackFactory factory) {
-        this.factory = factory;
-        return this;
-    }
-
-    public ConcurrentHashMap<String, SessionHandler> getSessions() {
-        return sessions;
-    }
-
-    public ServiceMetadata setSessions(ConcurrentHashMap<String, SessionHandler> sessions) {
-        this.sessions = sessions;
-        return this;
     }
 
     public boolean isWebSocketEnabled() {
@@ -81,13 +58,52 @@ public class ServiceMetadata {
         return this;
     }
 
-    public boolean isJsessionid() {
-        return jsessionid;
+    public boolean isCookieNeeded() {
+        return cookieNeeded;
     }
 
-    public ServiceMetadata setJsessionid(boolean jsessionid) {
-        this.jsessionid = jsessionid;
+    public ServiceMetadata setCookieNeeded(boolean cookieNeeded) {
+        this.cookieNeeded = cookieNeeded;
         return this;
+    }
+
+    public Timer getTimer() {
+        return timer;
+    }
+
+    public void setTimer(Timer timer) {
+        this.timer = timer;
+    }
+
+    public int getSessionTimeout() {
+        return sessionTimeout;
+    }
+
+    public void setSessionTimeout(int sessionTimeout) {
+        this.sessionTimeout = sessionTimeout;
+    }
+
+    public int getHeartbeatInterval() {
+        return heartbeatInterval;
+    }
+
+    public void setHeartbeatInterval(int heartbeatInterval) {
+        this.heartbeatInterval = heartbeatInterval;
+    }
+
+    public MetricRegistry getMetricRegistry() {
+        return metricRegistry;
+    }
+
+    public void setMetricRegistry(MetricRegistry metricRegistry) {
+        this.metricRegistry = metricRegistry;
+    }
+
+    public Metrics getMetrics() {
+        if (metrics == null) {
+            metrics = new Metrics(metricRegistry);
+        }
+        return metrics;
     }
 
     public synchronized SessionHandler getOrCreateSession(String sessionId, TransportMetrics tm,
@@ -118,24 +134,7 @@ public class ServiceMetadata {
         return sessions.remove(sessionId);
     }
 
-    public Timer getTimer() {
-        return timer;
-    }
-
-    public int getSessionTimeout() {
-        return sessionTimeout;
-    }
-
-    public int getHeartbeatInterval() {
-        return heartbeatInterval;
-    }
-
-    public Metrics getMetrics() {
-        return metrics;
-    }
-
     public static class Metrics {
-        TransportMetrics total;
         final TransportMetrics eventSource;
         final TransportMetrics htmlFile;
         final TransportMetrics jsonp;
@@ -154,10 +153,6 @@ public class ServiceMetadata {
             xhrPolling = new TransportMetrics("xhrPolling", metricRegistry);
             xhrSend = new TransportMetrics("xhrSend", metricRegistry);
             xhrStreaming = new TransportMetrics("xhrStreaming", metricRegistry);
-        }
-
-        public TransportMetrics getTotal() {
-            return total;
         }
 
         public TransportMetrics getEventSource() {
@@ -191,28 +186,5 @@ public class ServiceMetadata {
         public TransportMetrics getXhrStreaming() {
             return xhrStreaming;
         }
-
-        public TransportMetrics getMetrics(Class transportClass) {
-            if (transportClass == EventSourceTransport.class) {
-                return eventSource;
-            } else if (transportClass == HtmlFileTransport.class) {
-                return htmlFile;
-            } else if (transportClass == JsonpPollingTransport.class) {
-                return jsonp;
-            } else if (transportClass == RawWebSocketTransport.class) {
-                return rawWebSocket;
-            } else if (transportClass == WebSocketTransport.class) {
-                return webSocket;
-            } else if (transportClass == XhrPollingTransport.class) {
-                return xhrPolling;
-            } else if (transportClass == XhrSendTransport.class) {
-                return xhrSend;
-            } else if (transportClass == XhrStreamingTransport.class) {
-                return xhrStreaming;
-            } else {
-                throw new RuntimeException("Unknown transport " + transportClass.getSimpleName());
-            }
-        }
     }
-
 }

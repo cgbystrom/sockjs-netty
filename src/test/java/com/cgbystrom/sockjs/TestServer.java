@@ -18,8 +18,6 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Slf4JLoggerFactory;
-import org.jboss.netty.util.HashedWheelTimer;
-import org.jboss.netty.util.Timer;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
@@ -57,23 +55,29 @@ public class TestServer {
         final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
         router.setMetricRegistry(registry);
 
-        Timer timer = new HashedWheelTimer();
-        router.registerService("/echo", new SessionCallbackFactory() {
-            @Override
-            public EchoSession getSession(String id) throws Exception {
-                return new EchoSession();
-            }
-        }, true, 4096, timer);
-        router.registerService("/disabled_websocket_echo", new DisabledWebSocketEchoSession(), false, 128 * 1024, timer);
-        router.registerService("/cookie_needed_echo", new EchoSession(), true, 4096, timer).setJsessionid(true);
-        router.registerService("/close", new CloseSession(), true, 128 * 1024, timer);
-        router.registerService("/amplify", new AmplifySession(), true, 128 * 1024, timer);
-        router.registerService("/broadcast", new SessionCallbackFactory() {
+        router.registerService(new ServiceMetadata("/disabled_websocket_echo", new DisabledWebSocketEchoSession()));
+        router.registerService(new ServiceMetadata("/close", new CloseSession()));
+        router.registerService(new ServiceMetadata("/amplify", new AmplifySession()));
+        router.registerService(new ServiceMetadata("/broadcast", new SessionCallbackFactory() {
             @Override
             public BroadcastSession getSession(String id) throws Exception {
                 return new BroadcastSession();
             }
-        }, true, 128 * 1024, timer);
+        }));
+
+        ServiceMetadata echoService = new ServiceMetadata("/echo", new SessionCallbackFactory() {
+            @Override
+            public EchoSession getSession(String id) throws Exception {
+                return new EchoSession();
+            }
+        });
+        echoService.setMaxResponseSize(4096);
+        router.registerService(echoService);
+
+        ServiceMetadata cookieNeededEcho = new ServiceMetadata("/cookie_needed_echo", new EchoSession());
+        cookieNeededEcho.setMaxResponseSize(4096);
+        cookieNeededEcho.setCookieNeeded(true);
+        router.registerService(cookieNeededEcho);
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             @Override
