@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
 public class ServiceRouter extends SimpleChannelHandler {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServiceRouter.class);
     private static final Pattern SERVER_SESSION = Pattern.compile("^/([^/.]+)/([^/.]+)/");
-    private static final Random random = new Random();
+    private static final String DEFAULT_CLIENT_URL = "http://cdn.sockjs.org/sockjs-0.3.4.min.js";
+    private static final Random RANDOM = new Random();
     private enum SessionCreation { CREATE_OR_REUSE, FORCE_REUSE, FORCE_CREATE }
 
     private final Map<String, Service> services = new LinkedHashMap<String, Service>();
@@ -33,13 +34,8 @@ public class ServiceRouter extends SimpleChannelHandler {
     private MetricRegistry metricRegistry = new MetricRegistry();
     private Timer timer = new HashedWheelTimer();
 
-    /**
-     *
-     * @param clientUrl URL to SockJS JavaScript client. Needed by the iframe to properly load.
-     *                  (Hint: SockJS has a CDN, http://cdn.sockjs.org/)
-     */
-    public ServiceRouter(String clientUrl) {
-        this.iframe = new IframePage(clientUrl);
+    public ServiceRouter() {
+        setClientUrl(DEFAULT_CLIENT_URL);
     }
 
     public synchronized Service registerService(Service service) {
@@ -62,6 +58,15 @@ public class ServiceRouter extends SimpleChannelHandler {
 
     public void setMetricRegistry(MetricRegistry metricRegistry) {
         this.metricRegistry = metricRegistry;
+    }
+
+    /**
+     *
+     * @param clientUrl URL to SockJS JavaScript client. Needed by the iframe to properly load.
+     *                  (Hint: SockJS has a CDN, http://cdn.sockjs.org/)
+     */
+    public void setClientUrl(String clientUrl) {
+        iframe = new IframePage(clientUrl);
     }
 
     @Override
@@ -120,7 +125,7 @@ public class ServiceRouter extends SimpleChannelHandler {
             // Raw web socket
             ctx.getPipeline().addLast("sockjs-websocket", new RawWebSocketTransport(path));
             SessionHandler sessionHandler = service.getOrCreateSession(
-                    "rawwebsocket-" + random.nextLong(),
+                    "rawwebsocket-" + RANDOM.nextLong(),
                     service.getMetrics().getRawWebSocket(), true);
             ctx.getPipeline().addLast("sockjs-session-handler", sessionHandler);
         } else {
@@ -228,7 +233,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         sb.append(metadata.isCookieNeeded());
         sb.append(", ");
         sb.append("\"entropy\": ");
-        sb.append(random.nextInt(Integer.MAX_VALUE) + 1);
+        sb.append(RANDOM.nextInt(Integer.MAX_VALUE) + 1);
         sb.append("}");
         return ChannelBuffers.copiedBuffer(sb.toString(), CharsetUtil.UTF_8);
     }

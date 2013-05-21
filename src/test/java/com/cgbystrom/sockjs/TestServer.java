@@ -52,7 +52,7 @@ public class TestServer {
         final JmxReporter reporter = JmxReporter.forRegistry(registry).build();
         reporter.start();
 
-        final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
+        final ServiceRouter router = new ServiceRouter();
         router.setMetricRegistry(registry);
 
         router.registerService(new Service("/disabled_websocket_echo", new DisabledWebSocketEchoSession()));
