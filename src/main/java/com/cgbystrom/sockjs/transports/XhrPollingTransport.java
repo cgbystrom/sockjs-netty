@@ -12,7 +12,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Values.*;
 public class XhrPollingTransport extends BaseTransport {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(XhrPollingTransport.class);
 
-    public XhrPollingTransport(ServiceMetadata.Metrics metrics) {
+    public XhrPollingTransport(Service.Metrics metrics) {
         super(metrics.getXhrPolling());
     }
 

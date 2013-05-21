@@ -1,7 +1,7 @@
 package com.cgbystrom.sockjs.transports;
 
 import com.cgbystrom.sockjs.Frame;
-import com.cgbystrom.sockjs.ServiceMetadata;
+import com.cgbystrom.sockjs.Service;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
@@ -17,7 +17,7 @@ public class JsonpPollingTransport extends BaseTransport {
     
     private String jsonpCallback;
 
-    public JsonpPollingTransport(ServiceMetadata.Metrics metrics) {
+    public JsonpPollingTransport(Service.Metrics metrics) {
         super(metrics.getJsonp());
     }
 

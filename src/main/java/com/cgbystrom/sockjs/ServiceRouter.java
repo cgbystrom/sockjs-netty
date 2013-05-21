@@ -28,7 +28,7 @@ public class ServiceRouter extends SimpleChannelHandler {
     private static final Random random = new Random();
     private enum SessionCreation { CREATE_OR_REUSE, FORCE_REUSE, FORCE_CREATE }
 
-    private final Map<String, ServiceMetadata> services = new LinkedHashMap<String, ServiceMetadata>();
+    private final Map<String, Service> services = new LinkedHashMap<String, Service>();
     private IframePage iframe;
     private MetricRegistry metricRegistry = new MetricRegistry();
     private Timer timer = new HashedWheelTimer();
@@ -42,18 +42,18 @@ public class ServiceRouter extends SimpleChannelHandler {
         this.iframe = new IframePage(clientUrl);
     }
 
-    public synchronized ServiceMetadata registerService(ServiceMetadata serviceMetadata) {
-        services.put(serviceMetadata.getUrl(), serviceMetadata);
+    public synchronized Service registerService(Service service) {
+        services.put(service.getUrl(), service);
 
-        if (serviceMetadata.getMetricRegistry() == null) {
-            serviceMetadata.setMetricRegistry(metricRegistry);
+        if (service.getMetricRegistry() == null) {
+            service.setMetricRegistry(metricRegistry);
         }
 
-        if (serviceMetadata.getTimer() == null) {
-            serviceMetadata.setTimer(timer);
+        if (service.getTimer() == null) {
+            service.setTimer(timer);
         }
 
-        return serviceMetadata;
+        return service;
     }
 
     public MetricRegistry getMetricRegistry() {
@@ -70,10 +70,10 @@ public class ServiceRouter extends SimpleChannelHandler {
         if (logger.isDebugEnabled())
             logger.debug("URI " + request.getUri());
 
-        for (ServiceMetadata serviceMetadata : services.values()) {
+        for (Service service : services.values()) {
             // Check if there's a service registered with this URL
-            if (request.getUri().startsWith(serviceMetadata.getUrl())) {
-                handleService(ctx, e, serviceMetadata);
+            if (request.getUri().startsWith(service.getUrl())) {
+                handleService(ctx, e, service);
                 super.messageReceived(ctx, e);
                 return;
             }
@@ -97,9 +97,9 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
     }
 
-    private void handleService(ChannelHandlerContext ctx, MessageEvent e, ServiceMetadata serviceMetadata) throws Exception {
+    private void handleService(ChannelHandlerContext ctx, MessageEvent e, Service service) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
-        request.setUri(request.getUri().replaceFirst(serviceMetadata.getUrl(), ""));
+        request.setUri(request.getUri().replaceFirst(service.getUrl(), ""));
         QueryStringDecoder qsd = new QueryStringDecoder(request.getUri());
         String path = qsd.getPath();
 
@@ -114,17 +114,17 @@ public class ServiceRouter extends SimpleChannelHandler {
         } else if (path.startsWith("/info")) {
             response.setHeader(CONTENT_TYPE, "application/json; charset=UTF-8");
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
-            response.setContent(getInfo(serviceMetadata));
+            response.setContent(getInfo(service));
             writeResponse(e.getChannel(), request, response);
         } else if (path.startsWith("/websocket")) {
             // Raw web socket
             ctx.getPipeline().addLast("sockjs-websocket", new RawWebSocketTransport(path));
-            SessionHandler sessionHandler = serviceMetadata.getOrCreateSession(
+            SessionHandler sessionHandler = service.getOrCreateSession(
                     "rawwebsocket-" + random.nextLong(),
-                    serviceMetadata.getMetrics().getRawWebSocket(), true);
+                    service.getMetrics().getRawWebSocket(), true);
             ctx.getPipeline().addLast("sockjs-session-handler", sessionHandler);
         } else {
-            if (!handleSession(ctx, e, path, serviceMetadata)) {
+            if (!handleSession(ctx, e, path, service)) {
                 response.setStatus(HttpResponseStatus.NOT_FOUND);
                 response.setContent(ChannelBuffers.copiedBuffer("Not found", CharsetUtil.UTF_8));
                 writeResponse(e.getChannel(), request, response);
@@ -132,7 +132,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
     }
 
-    private boolean handleSession(ChannelHandlerContext ctx, MessageEvent e, String path, ServiceMetadata sm) throws Exception {
+    private boolean handleSession(ChannelHandlerContext ctx, MessageEvent e, String path, Service sm) throws Exception {
         HttpRequest request = (HttpRequest)e.getMessage();
         Matcher m = SERVER_SESSION.matcher(path);
 
@@ -217,7 +217,7 @@ public class ServiceRouter extends SimpleChannelHandler {
         }
     }
 
-    private ChannelBuffer getInfo(ServiceMetadata metadata) {
+    private ChannelBuffer getInfo(Service metadata) {
         StringBuilder sb = new StringBuilder(100);
         sb.append("{");
         sb.append("\"websocket\": ");

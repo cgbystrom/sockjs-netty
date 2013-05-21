@@ -55,17 +55,17 @@ public class TestServer {
         final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
         router.setMetricRegistry(registry);
 
-        router.registerService(new ServiceMetadata("/disabled_websocket_echo", new DisabledWebSocketEchoSession()));
-        router.registerService(new ServiceMetadata("/close", new CloseSession()));
-        router.registerService(new ServiceMetadata("/amplify", new AmplifySession()));
-        router.registerService(new ServiceMetadata("/broadcast", new SessionCallbackFactory() {
+        router.registerService(new Service("/disabled_websocket_echo", new DisabledWebSocketEchoSession()));
+        router.registerService(new Service("/close", new CloseSession()));
+        router.registerService(new Service("/amplify", new AmplifySession()));
+        router.registerService(new Service("/broadcast", new SessionCallbackFactory() {
             @Override
             public BroadcastSession getSession(String id) throws Exception {
                 return new BroadcastSession();
             }
         }));
 
-        ServiceMetadata echoService = new ServiceMetadata("/echo", new SessionCallbackFactory() {
+        Service echoService = new Service("/echo", new SessionCallbackFactory() {
             @Override
             public EchoSession getSession(String id) throws Exception {
                 return new EchoSession();
@@ -74,7 +74,7 @@ public class TestServer {
         echoService.setMaxResponseSize(4096);
         router.registerService(echoService);
 
-        ServiceMetadata cookieNeededEcho = new ServiceMetadata("/cookie_needed_echo", new EchoSession());
+        Service cookieNeededEcho = new Service("/cookie_needed_echo", new EchoSession());
         cookieNeededEcho.setMaxResponseSize(4096);
         cookieNeededEcho.setCookieNeeded(true);
         router.registerService(cookieNeededEcho);

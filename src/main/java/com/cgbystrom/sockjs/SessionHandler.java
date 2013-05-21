@@ -30,15 +30,15 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     private final LinkedList<SockJsMessage> messageQueue = new LinkedList<SockJsMessage>();
     private final AtomicBoolean serverHasInitiatedClose = new AtomicBoolean(false);
     private Frame.CloseFrame closeReason;
-    private ServiceMetadata serviceMetadata;
+    private Service service;
     private TransportMetrics transportMetrics;
     private Timeout sessionTimeout;
 
-    protected SessionHandler(String id, SessionCallback sessionCallback, ServiceMetadata sm,
+    protected SessionHandler(String id, SessionCallback sessionCallback, Service sm,
                              TransportMetrics tm) {
         this.id = id;
         this.sessionCallback = sessionCallback;
-        this.serviceMetadata = sm;
+        this.service = sm;
         this.transportMetrics = tm;
         if (logger.isDebugEnabled())
             logger.debug("Session " + id + " created");
@@ -214,16 +214,16 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
     }
 
     private void startSessionTimeout() {
-        sessionTimeout = serviceMetadata.getTimer().newTimeout(new TimerTask() {
+        sessionTimeout = service.getTimer().newTimeout(new TimerTask() {
             @Override
             public void run(Timeout timeout) throws Exception {
                 if (timeout.isCancelled()) {
                     return;
                 }
                 logger.debug("Session " + id + " timed out. Destroying...");
-                serviceMetadata.destroySession(id);
+                service.destroySession(id);
             }
-        }, serviceMetadata.getSessionTimeout(), TimeUnit.SECONDS);
+        }, service.getSessionTimeout(), TimeUnit.SECONDS);
     }
 
     private void stopSessionTimeout() {

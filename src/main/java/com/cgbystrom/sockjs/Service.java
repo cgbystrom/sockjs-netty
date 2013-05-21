@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.cgbystrom.sockjs.SessionHandler.NotFoundException;
 
-public class ServiceMetadata {
+public class Service {
     private String url;
     private SessionCallbackFactory factory;
     private ConcurrentHashMap<String, SessionHandler> sessions = new ConcurrentHashMap<String, SessionHandler>();
@@ -22,12 +22,12 @@ public class ServiceMetadata {
     private MetricRegistry metricRegistry;
     private Metrics metrics;
 
-    public ServiceMetadata(String url, SessionCallbackFactory factory) {
+    public Service(String url, SessionCallbackFactory factory) {
         this.url = url;
         this.factory = factory;
     }
 
-    public ServiceMetadata(String url, final SessionCallback session) {
+    public Service(String url, final SessionCallback session) {
         this(url, new SessionCallbackFactory() {
             @Override
             public SessionCallback getSession(String id) throws Exception {
@@ -44,7 +44,7 @@ public class ServiceMetadata {
         return isWebSocketEnabled;
     }
 
-    public ServiceMetadata setWebSocketEnabled(boolean webSocketEnabled) {
+    public Service setWebSocketEnabled(boolean webSocketEnabled) {
         isWebSocketEnabled = webSocketEnabled;
         return this;
     }
@@ -53,7 +53,7 @@ public class ServiceMetadata {
         return maxResponseSize;
     }
 
-    public ServiceMetadata setMaxResponseSize(int maxResponseSize) {
+    public Service setMaxResponseSize(int maxResponseSize) {
         this.maxResponseSize = maxResponseSize;
         return this;
     }
@@ -62,7 +62,7 @@ public class ServiceMetadata {
         return cookieNeeded;
     }
 
-    public ServiceMetadata setCookieNeeded(boolean cookieNeeded) {
+    public Service setCookieNeeded(boolean cookieNeeded) {
         this.cookieNeeded = cookieNeeded;
         return this;
     }

@@ -1,6 +1,6 @@
 package com.cgbystrom.sockjs.transports;
 
-import com.cgbystrom.sockjs.ServiceMetadata;
+import com.cgbystrom.sockjs.Service;
 import com.cgbystrom.sockjs.SessionHandler;
 import com.cgbystrom.sockjs.SockJsMessage;
 import org.codehaus.jackson.JsonParseException;
@@ -22,7 +22,7 @@ public class XhrSendTransport extends SimpleChannelUpstreamHandler {
     private boolean isJsonpEnabled = false;
     private TransportMetrics transportMetrics;
 
-    public XhrSendTransport(ServiceMetadata.Metrics metrics, boolean isJsonpEnabled) {
+    public XhrSendTransport(Service.Metrics metrics, boolean isJsonpEnabled) {
         this.isJsonpEnabled = isJsonpEnabled;
         this.transportMetrics = metrics.getXhrSend();
     }

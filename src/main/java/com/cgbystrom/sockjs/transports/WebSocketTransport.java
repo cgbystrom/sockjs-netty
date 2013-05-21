@@ -32,7 +32,7 @@ public class WebSocketTransport extends SimpleChannelHandler {
     private final String path;
     private TransportMetrics transportMetrics;
 
-    public WebSocketTransport(String path, ServiceMetadata metadata) {
+    public WebSocketTransport(String path, Service metadata) {
         this.path = path;
         transportMetrics = metadata.getMetrics().getWebSocket();
     }
