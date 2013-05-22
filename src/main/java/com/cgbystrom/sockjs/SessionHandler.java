@@ -162,7 +162,13 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
                 channel.write(closeReason);
             }
             // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
-            sessionCallback.onClose();
+            try {
+                sessionCallback.onClose();
+            } catch (Exception e) {
+                if (sessionCallback.onError(e)) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
     }
 
