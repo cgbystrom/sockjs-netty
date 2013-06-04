@@ -18,6 +18,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Slf4JLoggerFactory;
+import org.junit.Ignore;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
@@ -25,6 +26,7 @@ import java.util.concurrent.Executors;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
+@Ignore
 public class TestServer {
     public static void main(String[] args) {
         Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
