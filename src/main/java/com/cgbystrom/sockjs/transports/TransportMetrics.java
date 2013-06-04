@@ -21,9 +21,11 @@ public class TransportMetrics {
     public final Histogram messagesReceivedSize;
     public final Meter messagesSent;
     public final Histogram messagesSentSize;
+    private final String prefix;
     private final String transport;
 
-    public TransportMetrics(String transport, MetricRegistry metrics) {
+    public TransportMetrics(String prefix, String transport, MetricRegistry metrics) {
+        this.prefix = prefix;
         this.transport = transport;
         sessionsOpen = metrics.counter(getName("sessionsOpen"));
         sessionsOpened = metrics.meter(getName("sessionsOpened"));
@@ -36,6 +38,6 @@ public class TransportMetrics {
     }
 
     private String getName(String name) {
-        return MetricRegistry.name("com.cgbystrom.sockjs.transports", transport, name);
+        return MetricRegistry.name(prefix, transport, name);
     }
 }

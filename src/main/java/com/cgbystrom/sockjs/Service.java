@@ -101,9 +101,13 @@ public class Service {
 
     public Metrics getMetrics() {
         if (metrics == null) {
-            metrics = new Metrics(metricRegistry);
+            metrics = new Metrics("com.cgbystrom.sockjs.transports", metricRegistry);
         }
         return metrics;
+    }
+
+    public void setMetrics(Metrics metrics) {
+        this.metrics = metrics;
     }
 
     public synchronized SessionHandler getOrCreateSession(String sessionId, TransportMetrics tm,
@@ -144,15 +148,15 @@ public class Service {
         final TransportMetrics xhrSend;
         final TransportMetrics xhrStreaming;
 
-        public Metrics(MetricRegistry metricRegistry) {
-            eventSource = new TransportMetrics("eventSource", metricRegistry);
-            htmlFile = new TransportMetrics("htmlFile", metricRegistry);
-            jsonp = new TransportMetrics("jsonp", metricRegistry);
-            rawWebSocket = new TransportMetrics("rawWebSocket", metricRegistry);
-            webSocket = new TransportMetrics("webSocket", metricRegistry);
-            xhrPolling = new TransportMetrics("xhrPolling", metricRegistry);
-            xhrSend = new TransportMetrics("xhrSend", metricRegistry);
-            xhrStreaming = new TransportMetrics("xhrStreaming", metricRegistry);
+        public Metrics(String prefix, MetricRegistry metricRegistry) {
+            eventSource = new TransportMetrics(prefix, "eventSource", metricRegistry);
+            htmlFile = new TransportMetrics(prefix, "htmlFile", metricRegistry);
+            jsonp = new TransportMetrics(prefix, "jsonp", metricRegistry);
+            rawWebSocket = new TransportMetrics(prefix, "rawWebSocket", metricRegistry);
+            webSocket = new TransportMetrics(prefix, "webSocket", metricRegistry);
+            xhrPolling = new TransportMetrics(prefix, "xhrPolling", metricRegistry);
+            xhrSend = new TransportMetrics(prefix, "xhrSend", metricRegistry);
+            xhrStreaming = new TransportMetrics(prefix, "xhrStreaming", metricRegistry);
         }
 
         public TransportMetrics getEventSource() {
