@@ -24,7 +24,7 @@ import java.util.concurrent.Executors;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 public class TestServer {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
         LoggerContext loggerContext = rootLogger.getLoggerContext();
         loggerContext.reset();
@@ -46,7 +46,8 @@ public class TestServer {
                         Executors.newCachedThreadPool(),
                         Executors.newCachedThreadPool()));
 
-        final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
+        //final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
+        final ServiceRouter router = new ServiceRouter(TestServer.class.getClassLoader().getResourceAsStream("resources/sockjs-0.3.4.min.js"));
         router.registerService("/echo", new SessionCallbackFactory() {
             @Override
             public EchoSession getSession(String id) throws Exception {
