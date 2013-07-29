@@ -5,6 +5,7 @@ import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
 
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -196,5 +197,13 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         public LockException(Channel channel) {
             super("Session is locked by channel " + channel + ". Please disconnect other channel first before trying to register it with a session.");
         }
+    }
+
+    @Override
+    public SocketAddress getRemoteAddress() {
+        if (channel != null) {
+            return channel.getRemoteAddress();
+        }
+        return null;
     }
 }
