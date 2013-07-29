@@ -12,6 +12,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Values.KEEP_ALIVE;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
@@ -27,6 +28,7 @@ public class ServiceRouter extends SimpleChannelHandler {
 
     private final Map<String, ServiceMetadata> services = new LinkedHashMap<String, ServiceMetadata>();
     private IframePage iframe;
+    private volatile boolean noNewConnections;
 
     /**
      *
@@ -35,6 +37,18 @@ public class ServiceRouter extends SimpleChannelHandler {
      */
     public ServiceRouter(String clientUrl) {
         this.iframe = new IframePage(clientUrl);
+    }
+
+    public ServiceRouter(InputStream clientResource) throws Exception {
+        try {
+            this.iframe = new IframePage(clientResource);
+        } finally {
+            if (clientResource != null) {
+                try {
+                    clientResource.close();
+                } catch (Exception ignore) {}
+            }
+        }
     }
 
     public synchronized ServiceMetadata registerService(String baseUrl, final SessionCallback service,
@@ -103,9 +117,15 @@ public class ServiceRouter extends SimpleChannelHandler {
             iframe.handle(request, response);
             writeResponse(e.getChannel(), request, response);
         } else if (path.startsWith("/info")) {
+            if (noNewConnections) {
+                response.setStatus(HttpResponseStatus.SERVICE_UNAVAILABLE);
+                response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
+                response.setContent(ChannelBuffers.copiedBuffer("Temporary unavailable", CharsetUtil.UTF_8));
+            } else {
             response.setHeader(CONTENT_TYPE, "application/json; charset=UTF-8");
             response.setHeader(CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0");
             response.setContent(getInfo(serviceMetadata));
+            }
             writeResponse(e.getChannel(), request, response);
         } else if (path.startsWith("/websocket")) {
             // Raw web socket
@@ -234,6 +254,30 @@ public class ServiceRouter extends SimpleChannelHandler {
         sb.append(random.nextInt(Integer.MAX_VALUE) + 1);
         sb.append("}");
         return ChannelBuffers.copiedBuffer(sb.toString(), CharsetUtil.UTF_8);
+    }
+
+    /**
+     * Check if server is accepting new connections
+     *
+     * @return true if new connections are not allowed
+     */
+    public boolean isNoNewConnections() {
+        return noNewConnections;
+    }
+
+    /**
+     * Stop accepting new connections.
+     * Existed sessions still to be handled
+     */
+    public void stopAcceptingNewConnections() {
+        noNewConnections = true;
+    }
+
+    /**
+     * Continue accepting new connections.
+     */
+    public void startAcceptingNewConnections() {
+        noNewConnections = false;
     }
 
     public static class ServiceMetadata {
