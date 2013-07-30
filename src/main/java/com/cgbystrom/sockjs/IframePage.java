@@ -5,7 +5,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.util.CharsetUtil;
 
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Formatter;
@@ -15,7 +15,11 @@ public class IframePage {
     private String etag;
     
     public IframePage(String url) {
-        content = createContent(url);
+        content = createContent(getJsClient(url));
+    }
+
+    public IframePage(InputStream clientResource) throws IOException {
+        content = createContent(getJsClient(clientResource));
     }
 
     public void handle(HttpRequest request, HttpResponse response) {
@@ -44,7 +48,7 @@ public class IframePage {
         response.setHeader(HttpHeaders.Names.ETAG, etag);
     }
     
-    private ChannelBuffer createContent(String url) {
+    private ChannelBuffer createContent(String jsClient) {
         String content = "<!DOCTYPE html>\n" +
         "<html>\n" +
         "<head>\n" +
@@ -54,7 +58,7 @@ public class IframePage {
         "    document.domain = document.domain;\n" +
         "    _sockjs_onload = function(){SockJS.bootstrap_iframe();};\n" +
         "  </script>\n" +
-        "  <script src=\"" + url + "\"></script>\n" +
+        jsClient +
         "</head>\n" +
         "<body>\n" +
         "  <h2>Don't panic!</h2>\n" +
@@ -66,6 +70,22 @@ public class IframePage {
         etag = "\"" + generateMd5(content) + "\"";
         
         return ChannelBuffers.copiedBuffer(content, CharsetUtil.UTF_8);
+    }
+
+    private String getJsClient(String url) {
+        return "<script src=\"" + url + "\"></script>\n";
+    }
+
+    private String getJsClient(InputStream clientResource) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(clientResource));
+        StringBuilder builder = new StringBuilder();
+        builder.append("<script>");
+        String line;
+        while ((line = reader.readLine()) != null) {
+            builder.append(line).append("\n");
+        }
+        builder.append("</script>\n");
+        return builder.toString();
     }
 
     private static String generateMd5(String value) {

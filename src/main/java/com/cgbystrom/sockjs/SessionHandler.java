@@ -5,6 +5,7 @@ import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
 
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -100,6 +101,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         if (state == State.OPEN && !serverHasInitiatedClose.get()) {
             logger.debug("Session " + id + " underlying channel closed unexpectedly. Flagging session as interrupted." + e.getChannel());
             setState(State.INTERRUPTED);
+            sessionCallback.onClose();
         } else {
             logger.debug("Session " + id + " underlying channel closed " + e.getChannel());
         }
@@ -139,7 +141,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     @Override
     public void close() {
-        close(3000, "Go away!");
+        try {
+            flush();
+        } finally {
+            close(3000, "Go away!");
+        }
     }
 
     public synchronized void close(int code, String message) {
@@ -152,7 +158,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
                 channel.write(closeReason);
             }
             // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
-            sessionCallback.onClose();
+            //sessionCallback.onClose();
         }
     }
 
@@ -196,5 +202,13 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         public LockException(Channel channel) {
             super("Session is locked by channel " + channel + ". Please disconnect other channel first before trying to register it with a session.");
         }
+    }
+
+    @Override
+    public SocketAddress getRemoteAddress() {
+        if (channel != null) {
+            return channel.getRemoteAddress();
+        }
+        return null;
     }
 }
