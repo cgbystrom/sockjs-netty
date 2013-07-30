@@ -101,6 +101,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         if (state == State.OPEN && !serverHasInitiatedClose.get()) {
             logger.debug("Session " + id + " underlying channel closed unexpectedly. Flagging session as interrupted." + e.getChannel());
             setState(State.INTERRUPTED);
+            sessionCallback.onClose();
         } else {
             logger.debug("Session " + id + " underlying channel closed " + e.getChannel());
         }
@@ -140,7 +141,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
     @Override
     public void close() {
-        close(3000, "Go away!");
+        try {
+            flush();
+        } finally {
+            close(3000, "Go away!");
+        }
     }
 
     public synchronized void close(int code, String message) {
@@ -153,7 +158,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
                 channel.write(closeReason);
             }
             // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
-            sessionCallback.onClose();
+            //sessionCallback.onClose();
         }
     }
 

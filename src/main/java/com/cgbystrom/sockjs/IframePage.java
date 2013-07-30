@@ -18,7 +18,7 @@ public class IframePage {
         content = createContent(getJsClient(url));
     }
 
-    public IframePage(InputStream clientResource) throws Exception {
+    public IframePage(InputStream clientResource) throws IOException {
         content = createContent(getJsClient(clientResource));
     }
 
@@ -76,7 +76,7 @@ public class IframePage {
         return "<script src=\"" + url + "\"></script>\n";
     }
 
-    private String getJsClient(InputStream clientResource) throws Exception {
+    private String getJsClient(InputStream clientResource) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(clientResource));
         StringBuilder builder = new StringBuilder();
         builder.append("<script>");

@@ -39,7 +39,11 @@ public class ServiceRouter extends SimpleChannelHandler {
         this.iframe = new IframePage(clientUrl);
     }
 
-    public ServiceRouter(InputStream clientResource) throws Exception {
+    public ServiceRouter() throws IOException {
+        this(ServiceRouter.class.getResourceAsStream("/resources/sockjs-0.3.4.min.js"));
+    }
+
+    public ServiceRouter(InputStream clientResource) throws IOException {
         try {
             this.iframe = new IframePage(clientResource);
         } finally {

@@ -14,6 +14,7 @@ import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
+import org.jboss.netty.handler.execution.OrderedMemoryAwareThreadPoolExecutor;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Slf4JLoggerFactory;
 import org.slf4j.LoggerFactory;
@@ -43,8 +44,7 @@ public class TestServer {
 
         ServerBootstrap bootstrap = new ServerBootstrap(
                 new NioServerSocketChannelFactory(
-                        Executors.newCachedThreadPool(),
-                        Executors.newCachedThreadPool()));
+                        Executors.newCachedThreadPool(), new OrderedMemoryAwareThreadPoolExecutor(20, 0, 0)));
 
         //final ServiceRouter router = new ServiceRouter("http://cdn.sockjs.org/sockjs-0.3.4.min.js");
         final ServiceRouter router = new ServiceRouter(TestServer.class.getClassLoader().getResourceAsStream("resources/sockjs-0.3.4.min.js"));
