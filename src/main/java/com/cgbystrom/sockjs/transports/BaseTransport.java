@@ -6,6 +6,9 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.*;
 import org.jboss.netty.handler.codec.http.*;
+import org.jboss.netty.handler.timeout.IdleState;
+import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
+import org.jboss.netty.handler.timeout.IdleStateEvent;
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
@@ -13,7 +16,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
 
 import java.util.Set;
 
-public class BaseTransport extends SimpleChannelHandler {
+public class BaseTransport extends IdleStateAwareChannelHandler {
     public static final String CONTENT_TYPE_JAVASCRIPT = "application/javascript; charset=UTF-8";
     public static final String CONTENT_TYPE_FORM = "application/x-www-form-urlencoded";
     public static final String CONTENT_TYPE_PLAIN = "text/plain; charset=UTF-8";
@@ -90,6 +93,16 @@ public class BaseTransport extends SimpleChannelHandler {
         } else {
             super.exceptionCaught(ctx, e);
         }
+    }
+
+    @Override
+    public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e) throws Exception {
+        if (e.getState() == IdleState.ALL_IDLE) {
+            logger.debug("Closing idle connection" + e.getChannel());
+            e.getChannel().close();
+        }
+
+        super.channelIdle(ctx, e);
     }
 
     protected HttpResponse createResponse(String contentType) {
