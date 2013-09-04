@@ -174,35 +174,33 @@ public class WebSocketTransport extends SimpleChannelHandler {
         } else if (frame instanceof PingWebSocketFrame) {
             ctx.getChannel().write(new PongWebSocketFrame(frame.getBinaryData()));
             return;
-        } else if (!(frame instanceof TextWebSocketFrame)) {
-            throw new UnsupportedOperationException(String.format("%s frame types not supported", frame.getClass().getName()));
-        }
+        } else if (frame instanceof TextWebSocketFrame) {
+            // Send the uppercase string back.
+            String request = ((TextWebSocketFrame) frame).getText();
+            logger.debug(String.format("Channel %s received '%s'", ctx.getChannel().getId(), request));
+            ChannelBuffer payload = frame.getBinaryData();
 
-        // Send the uppercase string back.
-        String request = ((TextWebSocketFrame) frame).getText();
-        logger.debug(String.format("Channel %s received '%s'", ctx.getChannel().getId(), request));
-        ChannelBuffer payload = frame.getBinaryData();
+            if (frame.getBinaryData().readableBytes() == 0) {
+                return;
+            }
 
-        if (frame.getBinaryData().readableBytes() == 0) {
-            return;
-        }
+            ChannelBufferInputStream cbis = new ChannelBufferInputStream(payload);
+            String[] messages;
+            if (payload.getByte(0) == '[') {
+                // decode array
+                messages = mapper.readValue(cbis, String[].class);
+            } else if (payload.getByte(0) == '"') {
+                // decode string
+                messages = new String[1];
+                messages[0] = mapper.readValue(cbis, String.class);
+            } else {
+                throw new IOException("Expected message as string or string[]");
+            }
 
-        ChannelBufferInputStream cbis = new ChannelBufferInputStream(payload);
-        String[] messages;
-        if (payload.getByte(0) == '[') {
-            // decode array
-            messages = mapper.readValue(cbis, String[].class);
-        } else if (payload.getByte(0) == '"') {
-            // decode string
-            messages = new String[1];
-            messages[0] = mapper.readValue(cbis, String.class);
-        } else {
-            throw new IOException("Expected message as string or string[]");
-        }
-
-        for (String message : messages) {
-            SockJsMessage jsMessage = new SockJsMessage(message);
-            ctx.sendUpstream(new UpstreamMessageEvent(channel, jsMessage, channel.getRemoteAddress()));
+            for (String message : messages) {
+                SockJsMessage jsMessage = new SockJsMessage(message);
+                ctx.sendUpstream(new UpstreamMessageEvent(channel, jsMessage, channel.getRemoteAddress()));
+            }
         }
     }
 
