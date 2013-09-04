@@ -95,16 +95,6 @@ public class BaseTransport extends IdleStateAwareChannelHandler {
         }
     }
 
-    @Override
-    public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e) throws Exception {
-        if (e.getState() == IdleState.ALL_IDLE) {
-            logger.debug("Closing idle connection" + e.getChannel());
-            e.getChannel().close();
-        }
-
-        super.channelIdle(ctx, e);
-    }
-
     protected HttpResponse createResponse(String contentType) {
         final HttpVersion version = request.getProtocolVersion();
         HttpResponse response = new DefaultHttpResponse(version, HttpResponseStatus.OK);
