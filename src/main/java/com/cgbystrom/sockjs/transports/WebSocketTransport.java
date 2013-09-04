@@ -63,7 +63,9 @@ public class WebSocketTransport extends SimpleChannelHandler {
         } else if (msg instanceof WebSocketFrame) {
             WebSocketFrame wsf = (WebSocketFrame) msg;
             transportMetrics.messagesReceived.mark();
-            transportMetrics.messagesReceivedSize.update(wsf.getBinaryData().readableBytes());
+            if (wsf.getBinaryData() != null) {
+                transportMetrics.messagesReceivedSize.update(wsf.getBinaryData().readableBytes());
+            }
             handleWebSocketFrame(ctx, e.getChannel(), wsf);
         } else {
             throw new IOException("Unknown frame type: " + msg.getClass().getSimpleName());
