@@ -18,10 +18,10 @@ public abstract class SockJsClient extends SimpleChannelUpstreamHandler {
             Executors.newCachedThreadPool());
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public abstract ChannelFuture connect();
+    public abstract ChannelFuture connect() throws URISyntaxException;
     public abstract ChannelFuture disconnect();
 
-    public static SockJsClient newClient(URI url, Protocol protocol, final SessionCallback callback) throws URISyntaxException {
+    public static SockJsClient newClient(URI url, Protocol protocol, final SessionCallback callback) {
         ClientBootstrap bootstrap = new ClientBootstrap(socketChannelFactory);
 
         switch (protocol) {

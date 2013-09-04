@@ -25,20 +25,13 @@ public class WebSocketClient extends SockJsClient implements Session {
     private String sessionId;
     private URI uri;
     private SessionCallback callback;
-    private final WebSocketClientHandshaker wsHandshaker;
+    private WebSocketClientHandshaker wsHandshaker;
     private boolean sockJsHandshakeDone = false;
 
-    public WebSocketClient(ClientBootstrap bootstrap, URI uri, SessionCallback callback) throws URISyntaxException {
+    public WebSocketClient(ClientBootstrap bootstrap, URI uri, SessionCallback callback) {
         this.bootstrap = bootstrap;
-        this.sessionId = UUID.randomUUID().toString();
         this.uri = uri;
         this.callback = callback;
-
-        URI sockJsUri = new URI("http", uri.getUserInfo(), uri.getHost(), uri.getPort(),
-                uri.getPath() + "/999/" + sessionId + "/websocket", uri.getQuery(), uri.getFragment());
-
-        this.wsHandshaker = new WebSocketClientHandshakerFactory().newHandshaker(
-                sockJsUri, WebSocketVersion.V13, null, false, null);
     }
 
     @Override
@@ -106,8 +99,15 @@ public class WebSocketClient extends SockJsClient implements Session {
     }
 
     @Override
-    public ChannelFuture connect() {
-        return bootstrap.connect(new InetSocketAddress(uri.getHost(), uri.getPort()));
+    public ChannelFuture connect() throws URISyntaxException {
+        this.sessionId = UUID.randomUUID().toString();
+        URI sockJsUri = new URI("http", uri.getUserInfo(), uri.getHost(), uri.getPort(),
+                uri.getPath() + "/999/" + sessionId + "/websocket", uri.getQuery(), uri.getFragment());
+
+        this.wsHandshaker = new WebSocketClientHandshakerFactory().newHandshaker(
+                sockJsUri, WebSocketVersion.V13, null, false, null);
+
+        return bootstrap.connect(new InetSocketAddress(uri.getHost(), getPort(uri)));
     }
 
     @Override
@@ -129,5 +129,15 @@ public class WebSocketClient extends SockJsClient implements Session {
 
     private void sendWebSocketHandshake() throws Exception {
         wsHandshaker.handshake(channel);
+    }
+
+    private int getPort(URI uri) throws URISyntaxException {
+        if ("http".equals(uri.getScheme()) && uri.getPort() == -1) {
+            return 80;
+        } else if ("https".equals(uri.getScheme()) && uri.getPort() == -1) {
+            return 443;
+        }
+
+        return uri.getPort();
     }
 }
