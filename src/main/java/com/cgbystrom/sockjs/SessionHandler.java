@@ -226,7 +226,8 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
                 if (timeout.isCancelled()) {
                     return;
                 }
-                logger.debug("Session " + id + " timed out. Destroying...");
+                logger.debug("Session " + id + " timed out. Closing and destroying...");
+                SessionHandler.this.close(1002, "Connection interrupted");
                 service.destroySession(id);
             }
         }, service.getSessionTimeout(), TimeUnit.SECONDS);
