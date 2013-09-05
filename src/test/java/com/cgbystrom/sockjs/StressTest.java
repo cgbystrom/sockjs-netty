@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Slf4JLoggerFactory;
+import org.junit.Ignore;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.List;
  * Uses local channels instead of real sockets to avoid dealing with socket headaches.
  * May not 100% reproduce the scenario seen in the wild card. But it's good enough for most purposes.
  */
+@Ignore
 public class StressTest {
     public static void main(String[] args) throws Exception {
         Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
