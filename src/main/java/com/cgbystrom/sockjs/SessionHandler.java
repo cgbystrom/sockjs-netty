@@ -181,7 +181,7 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
 
             case CLOSED:
             case INTERRUPTED:
-                if (state == State.OPEN) {
+                if (this.state == State.OPEN) {
                     transportMetrics.sessionsOpen.dec();
                 }
 
