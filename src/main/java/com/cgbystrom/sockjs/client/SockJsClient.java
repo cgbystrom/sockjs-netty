@@ -4,6 +4,8 @@ import com.cgbystrom.sockjs.SessionCallback;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.*;
+import org.jboss.netty.channel.local.DefaultLocalClientChannelFactory;
+import org.jboss.netty.channel.local.LocalClientChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
@@ -16,6 +18,7 @@ public abstract class SockJsClient extends SimpleChannelUpstreamHandler {
     private static final NioClientSocketChannelFactory socketChannelFactory = new NioClientSocketChannelFactory(
             Executors.newCachedThreadPool(),
             Executors.newCachedThreadPool());
+    private static final LocalClientChannelFactory localSocketChannelFactory = new DefaultLocalClientChannelFactory();
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
     public abstract ChannelFuture connect() throws URISyntaxException;
@@ -43,6 +46,31 @@ public abstract class SockJsClient extends SimpleChannelUpstreamHandler {
 
         throw new IllegalArgumentException("Invalid protocol specified");
     }
+
+    public static SockJsClient newLocalClient(URI url, Protocol protocol, final SessionCallback callback) {
+        ClientBootstrap bootstrap = new ClientBootstrap(localSocketChannelFactory);
+
+        switch (protocol) {
+            case WEBSOCKET:
+                final WebSocketClient clientHandler = new WebSocketClient(bootstrap, url, callback);
+
+                bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
+                    public ChannelPipeline getPipeline() throws Exception {
+                        ChannelPipeline pipeline = Channels.pipeline();
+                        pipeline.addLast("decoder", new HttpResponseDecoder());
+                        pipeline.addLast("encoder", new HttpRequestEncoder());
+                        pipeline.addLast("ws-handler", clientHandler);
+                        return pipeline;
+                    }
+                });
+
+                return clientHandler;
+        }
+
+        throw new IllegalArgumentException("Invalid protocol specified");
+    }
+
+
 
     public static enum Protocol {
         WEBSOCKET

@@ -7,6 +7,8 @@ import com.cgbystrom.sockjs.SockJsMessage;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.*;
+import org.jboss.netty.channel.local.LocalAddress;
+import org.jboss.netty.channel.local.LocalClientChannelFactory;
 import org.jboss.netty.handler.codec.http.*;
 import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketClientHandshaker;
@@ -107,7 +109,11 @@ public class WebSocketClient extends SockJsClient implements Session {
         this.wsHandshaker = new WebSocketClientHandshakerFactory().newHandshaker(
                 sockJsUri, WebSocketVersion.V13, null, false, null);
 
-        return bootstrap.connect(new InetSocketAddress(uri.getHost(), getPort(uri)));
+        if (bootstrap.getFactory() instanceof LocalClientChannelFactory) {
+            return bootstrap.connect(new LocalAddress(getPort(uri)));
+        } else {
+            return bootstrap.connect(new InetSocketAddress(uri.getHost(), getPort(uri)));
+        }
     }
 
     @Override
