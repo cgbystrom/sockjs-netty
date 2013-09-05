@@ -156,11 +156,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         if (state != State.CLOSED) {
             logger.debug("Session " + id + " server initiated close, closing...");
             setState(State.CLOSED);
-            closeReason = Frame.closeFrame(code, message);
 
             if (channel != null && channel.isWritable()) {
-                channel.write(closeReason);
+                channel.write(Frame.closeFrame(code, message));
             }
+
             // FIXME: Should we really call onClose here? Potentially calling it twice for same session close?
             try {
                 sessionCallback.onClose();
