@@ -127,6 +127,11 @@ public class WebSocketClient extends SockJsClient implements Session {
         disconnect();
     }
 
+    @Override
+    public String getId() {
+        throw new RuntimeException("Not implemented!");
+    }
+
     private void sendWebSocketHandshake() throws Exception {
         wsHandshaker.handshake(channel);
     }

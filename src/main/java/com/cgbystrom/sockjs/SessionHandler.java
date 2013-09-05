@@ -152,6 +152,11 @@ public class SessionHandler extends SimpleChannelHandler implements Session {
         close(3000, "Go away!");
     }
 
+    @Override
+    public String getId() {
+        return id;
+    }
+
     public synchronized void close(int code, String message) {
         if (state != State.CLOSED) {
             logger.debug("Session " + id + " server initiated close, closing...");
