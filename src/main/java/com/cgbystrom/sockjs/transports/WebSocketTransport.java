@@ -201,6 +201,10 @@ public class WebSocketTransport extends SimpleChannelHandler {
                 SockJsMessage jsMessage = new SockJsMessage(message);
                 ctx.sendUpstream(new UpstreamMessageEvent(channel, jsMessage, channel.getRemoteAddress()));
             }
+        } else if (frame instanceof PongWebSocketFrame) {
+            // Ignore
+        } else {
+            logger.error("Unhandled frame type: " + frame.getClass().getSimpleName());
         }
     }
 
