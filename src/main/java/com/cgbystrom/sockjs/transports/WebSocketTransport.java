@@ -20,8 +20,11 @@ import org.jboss.netty.handler.codec.http.websocketx.*;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
+import org.jboss.netty.util.Timeout;
+import org.jboss.netty.util.TimerTask;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 // FIMXE: Mark as sharable?
 public class WebSocketTransport extends SimpleChannelHandler {
@@ -31,26 +34,34 @@ public class WebSocketTransport extends SimpleChannelHandler {
     private WebSocketServerHandshaker handshaker;
     private final String path;
     private TransportMetrics transportMetrics;
+    private Service service;
+    private Timeout pingPongFrameTimeout;
+    private Channel channel;
 
     public WebSocketTransport(String path, Service metadata) {
         this.path = path;
+        this.service = metadata;
         transportMetrics = metadata.getMetrics().getWebSocket();
     }
 
     @Override
     public void channelOpen(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         // Overridden method to prevent propagation of channel state event upstream.
+        // Depending on pipeline this may or may not be called.
     }
 
     @Override
     public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         // Overridden method to prevent propagation of channel state event upstream.
+        // Depending on pipeline this may or may not be called.
     }
 
     @Override
     public void channelDisconnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
         // Metrics for connect is handled by ServiceRouter since we are not attached
         // to pipeline when channelConnected fires.
+        cancelHeartbeatTask();
+        channel = null;
         transportMetrics.connectionsOpen.dec();
         super.channelDisconnected(ctx, e);
     }
@@ -116,12 +127,9 @@ public class WebSocketTransport extends SimpleChannelHandler {
             }
             //NotFoundHandler.respond(e.getChannel(), HttpResponseStatus.INTERNAL_SERVER_ERROR, "Broken JSON encoding.");
             //e.getChannel().close();
-
         } else {
             super.exceptionCaught(ctx, e);
         }
-
-        
     }
 
     private void handleHttpRequest(final ChannelHandlerContext ctx, final Channel channel, HttpRequest req) throws Exception {
@@ -157,9 +165,11 @@ public class WebSocketTransport extends SimpleChannelHandler {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
+                        WebSocketTransport.this.channel = ctx.getChannel();
                         ctx.getPipeline().remove(ServiceRouter.class);
                         ctx.getPipeline().remove(PreflightHandler.class);
                         ctx.sendUpstream(new UpstreamChannelStateEvent(channel, ChannelState.CONNECTED, Boolean.TRUE));
+                        scheduleHeartbeatTask();
                     }
                 }
             });
@@ -177,8 +187,11 @@ public class WebSocketTransport extends SimpleChannelHandler {
         } else if (frame instanceof TextWebSocketFrame) {
             // Send the uppercase string back.
             String request = ((TextWebSocketFrame) frame).getText();
-            logger.debug(String.format("Channel %s received '%s'", ctx.getChannel().getId(), request));
             ChannelBuffer payload = frame.getBinaryData();
+
+            if (logger.isDebugEnabled()) {
+                logger.debug(String.format("Channel %s received '%s'", ctx.getChannel().getId(), request));
+            }
 
             if (frame.getBinaryData().readableBytes() == 0) {
                 return;
@@ -224,6 +237,32 @@ public class WebSocketTransport extends SimpleChannelHandler {
             return "wss://" + req.getHeader(HttpHeaders.Names.HOST) + path;
         } else {
             return "ws://" + req.getHeader(HttpHeaders.Names.HOST) + path;
+        }
+    }
+
+    private void scheduleHeartbeatTask() {
+        int interval = service.getHeartbeatInterval();
+        pingPongFrameTimeout = service.getTimer().newTimeout(new HeartbeatTimerTask(), interval, TimeUnit.MILLISECONDS);
+    }
+
+    private void cancelHeartbeatTask() {
+        if (pingPongFrameTimeout != null) {
+            pingPongFrameTimeout.cancel();
+        }
+    }
+
+    /**
+     * Sends a Web Socket ping frame to the client to ensure TCP connection stays alive.
+     * Especially important on the public internet where many can/will interfere, such as proxies/load balancers.
+     * */
+    private class HeartbeatTimerTask implements TimerTask {
+        @Override
+        public void run(Timeout timeout) throws Exception {
+            if (!timeout.isCancelled() && channel != null && channel.isWritable()) {
+                logger.debug("Sending heartbeat/ping frame");
+                channel.write(new PingWebSocketFrame());
+                scheduleHeartbeatTask();
+            }
         }
     }
 }

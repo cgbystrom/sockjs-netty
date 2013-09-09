@@ -18,7 +18,7 @@ public class Service {
     private Timer timer;
     /** Timeout for when to kill sessions that have not received a connection */
     private int sessionTimeout = 5; // seconds
-    private int heartbeatInterval = 25; // seconds
+    private int heartbeatInterval = 25 * 1000; // milliseconds
     private MetricRegistry metricRegistry;
     private Metrics metrics;
 
